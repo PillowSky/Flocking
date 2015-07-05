@@ -5,9 +5,6 @@
 #include <GL/glx.h>
 #include <GL/glext.h>
 
-#include <string>
-#include <fstream>
-#include <cmath>
 #include "common/camera.h"
 #include "common/gauss.h"
 #include "common/util.hpp"
@@ -43,66 +40,125 @@ static GLuint arrayWidth, arrayHeight;
 static GLuint tex_velocity, tex_color, tex_position, fbo;
 static GLfloat time_step = 0.005;
 
-// draws a simple grid
+const char *ParamFilename = NULL;
+
+void init();
+void makeGrid();
+void PerspDisplay();
+void computationPass();
+void animate(int value);
+void mouseEventHandler(int button, int state, int x, int y);
+void motionEventHandler(int x, int y);
+void LoadParameters(const char *filename);
+void setupTextures();
+void keyboardEventHandler(unsigned char key, int x, int y);
+
+int main(int argc, char* argv[]) {
+	// set up opengl window
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+	glutInitWindowSize(WIDTH, HEIGHT);
+	glutInitWindowPosition(50, 50);
+	persp_win = glutCreateWindow("Basic GPU Boids");
+	
+	// initialize the camera and such
+	LoadParameters("parameters");
+	init();
+	
+	// Textures for lookup
+	setupTextures();
+
+	const char* shaderCode[] = { readFileBytes("shader/flocking.vert"), readFileBytes("shader/flocking.frag") };
+	GLenum shaderType[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
+	computeProgram = buildProgram(shaderCode, shaderType, 2);
+	
+	// set up opengl callback functions
+	glutDisplayFunc(PerspDisplay);
+	glutMouseFunc(mouseEventHandler);
+	glutMotionFunc(motionEventHandler);
+	glutKeyboardFunc(keyboardEventHandler);
+	
+	glutTimerFunc(TIMERMSECS, animate, 0);
+	glutMainLoop();
+
+	return EXIT_SUCCESS;
+}
+
+void init() {
+	// set up camera
+	// parameters are eye point, aim point, up vector
+	camera = new Camera(Vector3d(0, 12, 30), Vector3d(0, 12, 0), Vector3d(0, 1, 0));
+	camera->SetCenterOfFocus(Vector3d(0, 12, 0));
+	// grey background for window
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glShadeModel(GL_SMOOTH);
+	glDepthRange(0.0, 1.0);
+	glEnable(GL_NORMALIZE);
+	glPointSize(PointSize);
+	glEnable(GL_BLEND);
+	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive
+	arrayHeight = ROOT_OF_NUM_PARTICLES;
+	arrayWidth = ROOT_OF_NUM_PARTICLES;
+}
+
 void makeGrid() {
-    glColor3f(0.63, 0.63, 0.63);
-    
-  
-    for (float i=-12; i<12; i++) {
-        for (float j=-12; j<12; j++) {
-            glBegin(GL_LINES);
-            glVertex3f(i, 0, j);
-            glVertex3f(i, 0, j+1);
-            glEnd();
-            glBegin(GL_LINES);
-            glVertex3f(i, 0, j);
-            glVertex3f(i+1, 0, j);
-            glEnd();
-            
-            if (j == 11){
-                glBegin(GL_LINES);
-                glVertex3f(i, 0, j+1);
-                glVertex3f(i+1, 0, j+1);
-                glEnd();
-            }
-            if (i == 11){
-                glBegin(GL_LINES);
-                glVertex3f(i+1, 0, j);
-                glVertex3f(i+1, 0, j+1);
-                glEnd();
-            }
-        }
-    }
-    
-    glLineWidth(2.0);
-    glBegin(GL_LINES);
-    glVertex3f(-12, 0, 0);
-    glVertex3f(12, 0, 0);
-    glEnd();
-    glBegin(GL_LINES);
-    glVertex3f(0, 0, -12);
-    glVertex3f(0, 0, 12);
-    glEnd();
-    glLineWidth(1.0);
+	glColor3f(0.63, 0.63, 0.63);
+	for (float i = -12; i < 12; i++) {
+		for (float j = -12; j < 12; j++) {
+			glBegin(GL_LINES);
+			glVertex3f(i, 0, j);
+			glVertex3f(i, 0, j+1);
+			glEnd();
+			glBegin(GL_LINES);
+			glVertex3f(i, 0, j);
+			glVertex3f(i+1, 0, j);
+			glEnd();
+			
+			if (j == 11){
+				glBegin(GL_LINES);
+				glVertex3f(i, 0, j+1);
+				glVertex3f(i+1, 0, j+1);
+				glEnd();
+			}
+			if (i == 11){
+				glBegin(GL_LINES);
+				glVertex3f(i+1, 0, j);
+				glVertex3f(i+1, 0, j+1);
+				glEnd();
+			}
+		}
+	}
+	
+	glLineWidth(2.0);
+	glBegin(GL_LINES);
+	glVertex3f(-12, 0, 0);
+	glVertex3f(12, 0, 0);
+	glEnd();
+	glBegin(GL_LINES);
+	glVertex3f(0, 0, -12);
+	glVertex3f(0, 0, 12);
+	glEnd();
+	glLineWidth(1.0);
 }
 
 void PerspDisplay() {
 	glDrawBuffer(GL_BACK);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    // draw the camera created in perspective
-    camera->PerspectiveDisplay(WIDTH, HEIGHT);
-    glMatrixMode(GL_MODELVIEW);
-    
-    // Show the grid
-    glLoadIdentity();
-    glScalef(2.0, 0.0, 2.0);
-    if(showGrid)
-        makeGrid();
-    
-    
-    // Now get the framebuffer we rendered textures to
-    // bind the textures and enable them as well
-    glLoadIdentity();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	// draw the camera created in perspective
+	camera->PerspectiveDisplay(WIDTH, HEIGHT);
+	glMatrixMode(GL_MODELVIEW);
+	
+	// Show the grid
+	glLoadIdentity();
+	glScalef(2.0, 0.0, 2.0);
+	if(showGrid)
+		makeGrid();
+	
+	
+	// Now get the framebuffer we rendered textures to
+	// bind the textures and enable them as well
+	glLoadIdentity();
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, tex_position);
@@ -110,67 +166,67 @@ void PerspDisplay() {
 	glBindTexture(GL_TEXTURE_2D, tex_velocity);
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, tex_color);
-    
-    
-    // This is the magic speed component.
-    // Here we get super fast access to the pixels on the GPU
-    // and load them into a Vertex Buffer Object for reading.
-    // We do this as opposed to loading into a heap allocatd array
-    // Which saves a HUGE amount of process time, since everything virtually stays on
-    // the GPU, no extra BUS accesses
+	
+	
+	// This is the magic speed component.
+	// Here we get super fast access to the pixels on the GPU
+	// and load them into a Vertex Buffer Object for reading.
+	// We do this as opposed to loading into a heap allocatd array
+	// Which saves a HUGE amount of process time, since everything virtually stays on
+	// the GPU, no extra BUS accesses
 	glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, vbo);
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glReadPixels(0, 0, arrayWidth, arrayHeight, GL_RGBA, GL_FLOAT, NULL); // MAGIC!!!
-    glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, 0);
-    
-    glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, cbo);
-    glReadBuffer(GL_COLOR_ATTACHMENT2);
-    glReadPixels(0, 0, arrayWidth, arrayHeight, GL_RGBA, GL_FLOAT, NULL); // MAGIC!!!
-    glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, 0);
+	glReadBuffer(GL_COLOR_ATTACHMENT0);
+	glReadPixels(0, 0, arrayWidth, arrayHeight, GL_RGBA, GL_FLOAT, NULL); // MAGIC!!!
+	glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, 0);
+	
+	glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, cbo);
+	glReadBuffer(GL_COLOR_ATTACHMENT2);
+	glReadPixels(0, 0, arrayWidth, arrayHeight, GL_RGBA, GL_FLOAT, NULL); // MAGIC!!!
+	glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, 0);
 
-    // Go back to the main framebuffer
+	// Go back to the main framebuffer
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-    
+	
 	// Setup blending and make the particles look nice
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    glEnable(GL_BLEND);
-    
-    // We have uniform locations to make the computation simpler
-    // So scale and translate into position
-    glScalef(5.0, 5.0, 5.0);
-    glTranslatef(0.0, 2.0, 0.0);
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	
+	// We have uniform locations to make the computation simpler
+	// So scale and translate into position
+	glScalef(5.0, 5.0, 5.0);
+	glTranslatef(0.0, 2.0, 0.0);
 
-    
-    // Enable vertex arrays, bind our buffer with the texture PBO converted to VBO
-    // Then draw the verts.
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, vbo); 
-    glVertexPointer(4, GL_FLOAT, 0, 0);
+	
+	// Enable vertex arrays, bind our buffer with the texture PBO converted to VBO
+	// Then draw the verts.
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glEnableClientState(GL_COLOR_ARRAY);
+	
+	glBindBuffer(GL_ARRAY_BUFFER, vbo); 
+	glVertexPointer(4, GL_FLOAT, 0, 0);
 
-    glBindBuffer(GL_ARRAY_BUFFER, cbo);
-    glColorPointer(4, GL_FLOAT, 0, 0);
-    
-    glDrawArrays(GL_POINTS, 0, arrayWidth * arrayHeight);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glDisableClientState (GL_VERTEX_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
+	glBindBuffer(GL_ARRAY_BUFFER, cbo);
+	glColorPointer(4, GL_FLOAT, 0, 0);
+	
+	glDrawArrays(GL_POINTS, 0, arrayWidth * arrayHeight);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glDisableClientState (GL_VERTEX_ARRAY);
+	glDisableClientState(GL_COLOR_ARRAY);
 
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glDisable(GL_BLEND);
-    
+	glEnable(GL_DEPTH_TEST);
+	glDepthMask(GL_TRUE);
+	glDisable(GL_BLEND);
+	
 	glutSwapBuffers();
 }
 
 void computationPass() {
-    glLoadIdentity();
+	glLoadIdentity();
 	
-    // Render to texture setup,
-    // Esentially making a full screen quad so each texel turns into a fragment which can be
-    // replaced using the frag shader. Hack magic
+	// Render to texture setup,
+	// Esentially making a full screen quad so each texel turns into a fragment which can be
+	// replaced using the frag shader. Hack magic
 	glViewport(0, 0, arrayWidth, arrayHeight);
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
@@ -179,27 +235,27 @@ void computationPass() {
 	gluOrtho2D(0.0, arrayWidth, 0.0, arrayHeight);
 	
 	glEnable(GL_TEXTURE_2D);
-    
-    // Bind to our new framebuffer that will not be seen
+	
+	// Bind to our new framebuffer that will not be seen
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo);
-    // This is important, specify number of gl_FragData[N] outputs
+	// This is important, specify number of gl_FragData[N] outputs
 	GLenum drawBufs[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
-    // N=3
+	// N=3
 	glDrawBuffers(3, drawBufs);
-    
-    // Use our program and set uniforms
+	
+	// Use our program and set uniforms
 	glUseProgram(computeProgram);
-    glUniform1i(glGetUniformLocation(computeProgram, "positionTex"), 0);
-    glUniform1i(glGetUniformLocation(computeProgram, "velocityTex"), 1);
-    glUniform1i(glGetUniformLocation(computeProgram, "colorTex"), 2);
-    glUniform1f(glGetUniformLocation(computeProgram, "time_step"), (GLfloat)time_step);
-    glUniform1i(glGetUniformLocation(computeProgram, "texSixe"), ROOT_OF_NUM_PARTICLES);
-    glUniform1f(glGetUniformLocation(computeProgram, "Cohesion"), (GLfloat)Cohesion);
-    glUniform1f(glGetUniformLocation(computeProgram, "Alignment"), (GLfloat)Alignment);
-    glUniform1f(glGetUniformLocation(computeProgram, "NeighborRadius"), (GLfloat)NeighborRadius);
-    glUniform1f(glGetUniformLocation(computeProgram, "CollisionRadius"), (GLfloat)CollisionRadius);
-    
-    // Draw the quad ie create a texture(s) that hold our position, velocity, and color
+	glUniform1i(glGetUniformLocation(computeProgram, "positionTex"), 0);
+	glUniform1i(glGetUniformLocation(computeProgram, "velocityTex"), 1);
+	glUniform1i(glGetUniformLocation(computeProgram, "colorTex"), 2);
+	glUniform1f(glGetUniformLocation(computeProgram, "time_step"), (GLfloat)time_step);
+	glUniform1i(glGetUniformLocation(computeProgram, "texSixe"), ROOT_OF_NUM_PARTICLES);
+	glUniform1f(glGetUniformLocation(computeProgram, "Cohesion"), (GLfloat)Cohesion);
+	glUniform1f(glGetUniformLocation(computeProgram, "Alignment"), (GLfloat)Alignment);
+	glUniform1f(glGetUniformLocation(computeProgram, "NeighborRadius"), (GLfloat)NeighborRadius);
+	glUniform1f(glGetUniformLocation(computeProgram, "CollisionRadius"), (GLfloat)CollisionRadius);
+	
+	// Draw the quad ie create a texture(s) that hold our position, velocity, and color
 	glShadeModel(GL_FLAT);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glBegin(GL_QUADS);
@@ -213,69 +269,69 @@ void computationPass() {
 	glVertex2f(0.0, arrayHeight);
 	glEnd();
 	
-    glUseProgram(0);	
+	glUseProgram(0);	
 	
-    // Return it back to normal
+	// Return it back to normal
 	glMatrixMode(GL_PROJECTION);
 	glPopMatrix();
 	glMatrixMode(GL_MODELVIEW);
 	glPopMatrix();
 	glViewport(0, 0, WIDTH, HEIGHT);
 	glFlush();
-    
+	
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 	glDisable(GL_TEXTURE_2D);
 }
 
 void animate(int value) {
-    glutPostRedisplay();
-    
-    computationPass();
-    step+=1.0;
+	glutPostRedisplay();
+	
+	computationPass();
+	step+=1.0;
 	if (step >= arrayWidth*arrayHeight)
 		step = 0;
-       
-    glutTimerFunc(TIMERMSECS, animate, 0);
+	   
+	glutTimerFunc(TIMERMSECS, animate, 0);
 }
 
+
 void mouseEventHandler(int button, int state, int x, int y) {
-    // let the camera handle some specific mouse events (similar to maya)
-    camera->HandleMouseEvent(button, state, x, y);
+	// let the camera handle some specific mouse events (similar to maya)
+	camera->HandleMouseEvent(button, state, x, y);
 }
 
 void motionEventHandler(int x, int y) {
-    // let the camera handle some mouse motions if the camera is to be moved
-    camera->HandleMouseMotion(x, y);
-    glutPostRedisplay();
+	// let the camera handle some mouse motions if the camera is to be moved
+	camera->HandleMouseMotion(x, y);
+	glutPostRedisplay();
 }
 
-const char *ParamFilename = NULL;
 void LoadParameters(const char *filename){
-    
-    FILE *paramfile;
-    
-    if((paramfile = fopen(filename, "r")) == NULL){
-        fprintf(stderr, "error opening parameter file %s\n", filename);
-        exit(1);
-    }
-    ParamFilename = filename;
-    if(fscanf(paramfile, " %f %f %d %f %f %f %f",
-              &time_step, &PointSize, &ROOT_OF_NUM_PARTICLES, &Cohesion, &Alignment, &NeighborRadius, &CollisionRadius) != 7){
-        fprintf(stderr, "error reading parameter file %s\n", filename);
-        fclose(paramfile);
-        exit(1);
-    }
+	
+	FILE *paramfile;
+	
+	if((paramfile = fopen(filename, "r")) == NULL){
+		fprintf(stderr, "error opening parameter file %s\n", filename);
+		exit(1);
+	}
+	ParamFilename = filename;
+	if(fscanf(paramfile, " %f %f %d %f %f %f %f",
+			  &time_step, &PointSize, &ROOT_OF_NUM_PARTICLES, &Cohesion, &Alignment, &NeighborRadius, &CollisionRadius) != 7){
+		fprintf(stderr, "error reading parameter file %s\n", filename);
+		fclose(paramfile);
+		exit(1);
+	}
 }
 
 void setupTextures () {
-    
+	
 	int numParticles = arrayWidth*arrayHeight;
 	GLfloat *tex_data = new GLfloat[4*numParticles];
 	
 	srand48( time(NULL) );
 	int seed = rand();
-    
-    // Init all to fit in uniform cube
+	
+	// Init all to fit in uniform cube
 	for (int i = 0; i < numParticles; ++i) {
 		tex_data[4*i + 0] = ((float) rand() / RAND_MAX)*2.0-1.0;
 		tex_data[4*i + 1] = ((float) rand() / RAND_MAX)*2.0-1.0;
@@ -289,32 +345,32 @@ void setupTextures () {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, arrayWidth, arrayHeight, 0, GL_RGBA, GL_FLOAT, &tex_data[0]);
-    
-    // Init all the velocities, 
+	
+	// Init all the velocities, 
 	for (int i = 0; i < numParticles; ++i) {
 		tex_data[i*4+0] = gauss(0.0, 2.8, seed);
 		tex_data[i*4+1] = gauss(0.0, 2.8, seed);
 		tex_data[i*4+2] = gauss(0.0, 2.8, seed);
 		tex_data[i*4+3] = 0.0;
 	}
-    
+	
 	glGenTextures(1, &tex_velocity);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, tex_velocity);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, arrayWidth, arrayHeight, 0, GL_RGBA, GL_FLOAT, &tex_data[0]);
 
-    // Init all the colors and storage
-    for (int i = 0; i < numParticles; ++i) {
-        tex_data[i*4+0] = ((float) rand() / RAND_MAX) * 0.1 + 0.5;
-        tex_data[i*4+1] = ((float) rand() / RAND_MAX) * 0.2;
-        tex_data[i*4+2] = ((float) rand() / RAND_MAX) * 0.2;
-        tex_data[i*4+3] = 0.0; // Initially invisible
+	// Init all the colors and storage
+	for (int i = 0; i < numParticles; ++i) {
+		tex_data[i*4+0] = ((float) rand() / RAND_MAX) * 0.1 + 0.5;
+		tex_data[i*4+1] = ((float) rand() / RAND_MAX) * 0.2;
+		tex_data[i*4+2] = ((float) rand() / RAND_MAX) * 0.2;
+		tex_data[i*4+3] = 0.0; // Initially invisible
 	}
 	glGenTextures(1, &tex_color);
 	glActiveTexture(GL_TEXTURE2);
@@ -322,122 +378,70 @@ void setupTextures () {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, arrayWidth, arrayHeight, 0, GL_RGBA, GL_FLOAT, &tex_data[0]);
-    
+	
 	delete [] tex_data;
-    
-    // Gen the framebuffer for rendering
+	
+	// Gen the framebuffer for rendering
 	glGenFramebuffersEXT(1, &fbo);
-  	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo);
-    
-    // bind textures so we can use them laterz
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo);
+	
+	// bind textures so we can use them laterz
 	glBindTexture(GL_TEXTURE_2D, tex_position);
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, tex_position, 0);
-    
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, tex_position, 0);
+	
 	glBindTexture(GL_TEXTURE_2D, tex_velocity);
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT1_EXT, GL_TEXTURE_2D, tex_velocity, 0);
-    
-    glBindTexture(GL_TEXTURE_2D, tex_color);
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT2_EXT, GL_TEXTURE_2D, tex_color, 0);
-    
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT1_EXT, GL_TEXTURE_2D, tex_velocity, 0);
+	
+	glBindTexture(GL_TEXTURE_2D, tex_color);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT2_EXT, GL_TEXTURE_2D, tex_color, 0);
+	
 	if (glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) != GL_FRAMEBUFFER_COMPLETE_EXT)
-        printf("ERROR - Incomplete FrameBuffer\n");
-    
+		printf("ERROR - Incomplete FrameBuffer\n");
+	
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-    
-    // Vertex buffer init, positions
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, arrayWidth*arrayHeight*4*sizeof(GLfloat), NULL, GL_STREAM_COPY);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    
-    // Color buffer init, positions
-    glGenBuffers(1, &cbo);
-    glBindBuffer(GL_ARRAY_BUFFER, cbo);
-    glBufferData(GL_ARRAY_BUFFER, arrayWidth*arrayHeight*4*sizeof(GLfloat), NULL, GL_STREAM_COPY);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+	
+	// Vertex buffer init, positions
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, arrayWidth*arrayHeight*4*sizeof(GLfloat), NULL, GL_STREAM_COPY);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	
+	// Color buffer init, positions
+	glGenBuffers(1, &cbo);
+	glBindBuffer(GL_ARRAY_BUFFER, cbo);
+	glBufferData(GL_ARRAY_BUFFER, arrayWidth*arrayHeight*4*sizeof(GLfloat), NULL, GL_STREAM_COPY);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
+
 
 void keyboardEventHandler(unsigned char key, int x, int y) {
-    switch (key) {
-        case 'c': case 'C': {
-            // reset the camera to its initial position
-            camera->Reset();
-            break;
-        }
-        case 'r': case 'R': {
-            LoadParameters("parameters");
-            arrayHeight = ROOT_OF_NUM_PARTICLES;
-            arrayWidth = ROOT_OF_NUM_PARTICLES;
-            step = 0;
-            glPointSize(PointSize);
-            setupTextures();
-            break;
-        } case 'f': case 'F': {
-            camera->SetCenterOfFocus(Vector3d(0, 10, 0));
-            break;
-        } case 'g': case 'G':
-            showGrid = !showGrid;
-            break;
-            
-        case 'q': case 'Q':	// q or esc - quit
-        case 27:		// esc
-            exit(0);
-    }
-    
-    glutPostRedisplay();
+	switch (key) {
+		case 'c': case 'C': {
+			// reset the camera to its initial position
+			camera->Reset();
+			break;
+		}
+		case 'r': case 'R': {
+			LoadParameters("parameters");
+			arrayHeight = ROOT_OF_NUM_PARTICLES;
+			arrayWidth = ROOT_OF_NUM_PARTICLES;
+			step = 0;
+			glPointSize(PointSize);
+			setupTextures();
+			break;
+		} case 'f': case 'F': {
+			camera->SetCenterOfFocus(Vector3d(0, 10, 0));
+			break;
+		} case 'g': case 'G':
+			showGrid = !showGrid;
+			break;
+			
+		case 'q': case 'Q':	// q or esc - quit
+		case 27:		// esc
+			exit(0);
+	}
+	
+	glutPostRedisplay();
 }
-
-void init() {
-    // set up camera
-    // parameters are eye point, aim point, up vector
-    camera = new Camera(Vector3d(0, 12, 30), Vector3d(0, 12, 0),
-                        Vector3d(0, 1, 0));
-    camera->SetCenterOfFocus(Vector3d(0, 12, 0));
-    // grey background for window
-    glClearColor(0.0, 0.0, 0.0, 0.0);
-    glShadeModel(GL_SMOOTH);
-    glDepthRange(0.0, 1.0);
-    glEnable(GL_NORMALIZE);
-    glPointSize(PointSize);
-    glEnable(GL_BLEND);
-    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive
-    arrayHeight = ROOT_OF_NUM_PARTICLES;
-    arrayWidth = ROOT_OF_NUM_PARTICLES;
-}
-
-
-int main(int argc, char *argv[]) {
-    // set up opengl window
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
-    glutInitWindowSize(WIDTH, HEIGHT);
-    glutInitWindowPosition(50, 50);
-    persp_win = glutCreateWindow("Basic GPU Boids");
-    
-    // initialize the camera and such
-    LoadParameters("parameters");
-    init();
-    
-    // Textures for lookup
-    setupTextures();
-    
-    // Read in shader program char* and init shader 
-    //installShaders("particles.vert", "particles.frag");
-    const char* shaderCode[] = { readFileBytes("vertex.vert"), readFileBytes("fragment.frag") };
-    GLenum shaderType[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
-    computeProgram = buildProgram(shaderCode, shaderType, 2);
-    
-    // set up opengl callback functions
-    glutDisplayFunc(PerspDisplay);
-    glutMouseFunc(mouseEventHandler);
-    glutMotionFunc(motionEventHandler);
-    glutKeyboardFunc(keyboardEventHandler);
-    
-    glutTimerFunc(TIMERMSECS, animate, 0);
-    glutMainLoop();
-    return 0;
-}
-
