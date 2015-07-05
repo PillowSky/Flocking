@@ -10,11 +10,12 @@
 #include <cmath>
 #include "common/camera.h"
 #include "common/gauss.h"
+#include "common/util.hpp"
 
 const int WIDTH = 1024;
 const int HEIGHT = 768;
 const int TIMERMSECS = 1000 / 60;
-int ROOT_OF_NUM_PARTICLES = 2048;
+int ROOT_OF_NUM_PARTICLES = 256;
 // I *think* powers of 2 are most performant, have not profiled it though
 // 256 has best performance with most particles (65,536)
 // 512 still runs on my little compy pretty well : 262,144 particles (woot!)
@@ -38,10 +39,7 @@ GLuint computeProgram; // programs
 GLuint vbo, cbo;
 GLfloat step=0.0;
 
-int installShaders(const char *, const char *);
-
 static GLuint arrayWidth, arrayHeight;
-
 static GLuint tex_velocity, tex_color, tex_position, fbo;
 static GLfloat time_step = 0.005;
 
@@ -391,77 +389,6 @@ void keyboardEventHandler(unsigned char key, int x, int y) {
     glutPostRedisplay();
 }
 
-GLint getUniLoc(GLuint program, const GLchar *name) {
-    GLint loc;
-    loc = glGetUniformLocation(program, name);
-    if (loc == -1)
-        printf("No such uniform named \"%s\"\n", name);
-    return loc; 
-}
-
-int installShaders(const char *filenameV, const char *filenameF) {
-    GLuint programRet;
-    std::string line,text, text2;
-    std::ifstream in(filenameV);
-    while(std::getline(in, line))
-    {
-        text += line + "\n";
-    }
-    const char* brickVertex = text.c_str();
-    in.close();
-    
-    in.open(filenameF);
-    while(std::getline(in, line))
-    {
-        text2 += line + "\n";
-    }
-    const char* brickFragment = text2.c_str();
-
-    GLuint brickVS, brickFS; 
-    // handles to objects 
-    GLint vertCompiled, fragCompiled; 
-    // status values 
-    GLint linked;
-    
-    // Create a vertex shader object and a fragment shader object
-    brickVS = glCreateShader(GL_VERTEX_SHADER); 
-    brickFS = glCreateShader(GL_FRAGMENT_SHADER);
-    
-    // Load source code strings into shaders
-    glShaderSource(brickVS, 1, &brickVertex, NULL); 
-    glShaderSource(brickFS, 1, &brickFragment, NULL);
-    
-    // Compile the brick vertex shader and print out // the compiler log file.
-    glCompileShader(brickVS);
-    // Check for OpenGL errors 
-    glGetShaderiv(brickVS, GL_COMPILE_STATUS, &vertCompiled); 
-    // Compile the brick fragment shader and print out 
-    // the compiler log file.
-    glCompileShader(brickFS);
-    // Check for OpenGL errors 
-    glGetShaderiv(brickFS, GL_COMPILE_STATUS, &fragCompiled); 
-    
-    if (!vertCompiled || !fragCompiled) {
-             cout << "[ERROR] Could not compile program." << endl;
-        return 0;
-    }
-    // Create a program object and attach the two compiled shaders
-    programRet = glCreateProgram(); 
-    glAttachShader(programRet, brickVS);
-    glAttachShader(programRet, brickFS);
-
-    // Link the program object and print out the info log
-    glLinkProgram(programRet);
-    // Check for OpenGL errors 
-    glGetProgramiv(programRet, GL_LINK_STATUS, &linked); 
-    if (!linked) {
-        cout << "[ERROR] Did not link program." << endl;
-        return 0;
-    }
-    
-    return programRet;
-}
-
 void init() {
     // set up camera
     // parameters are eye point, aim point, up vector
@@ -499,7 +426,9 @@ int main(int argc, char *argv[]) {
     
     // Read in shader program char* and init shader 
     //installShaders("particles.vert", "particles.frag");
-    computeProgram = installShaders("vertex.vert", "fragment.frag");
+    const char* shaderCode[] = { readFileBytes("vertex.vert"), readFileBytes("fragment.frag") };
+    GLenum shaderType[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
+    computeProgram = buildProgram(shaderCode, shaderType, 2);
     
     // set up opengl callback functions
     glutDisplayFunc(PerspDisplay);

@@ -1,4 +1,4 @@
-#version 130
+#version 120
 
 uniform sampler2D positionTex;
 uniform sampler2D velocityTex;
