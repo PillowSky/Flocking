@@ -118,10 +118,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <None Include="shader\flocking.frag" />
-    <None Include="shader\flocking.vert" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="common\camera.h" />
     <ClInclude Include="common\matrix.h" />
     <ClInclude Include="common\util.hpp" />
@@ -135,6 +131,10 @@
     <ClCompile Include="common\utility.cpp" />
     <ClCompile Include="common\vector.cpp" />
     <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shader\flocking.frag" />
+    <None Include="shader\flocking.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

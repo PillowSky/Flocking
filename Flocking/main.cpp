@@ -9,13 +9,13 @@
 */
 
 #define _CRT_SECURE_NO_WARNINGS
+
 #include <iostream>
 #include <random>
 #include <boost/format.hpp>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-
 #include "common/camera.h"
 #include "common/util.hpp"
 
@@ -23,9 +23,9 @@ using namespace std;
 using namespace boost;
 using namespace glm;
 
-const int WIDTH = 1024;
-const int HEIGHT = 768;
-const int ROOT_OF_NUM_PARTICLES = 64;
+int WIDTH = 1024;
+int HEIGHT = 768;
+int ROOT_OF_NUM_PARTICLES = 64;
 
 float PointSize = 3.0;
 float Cohesion = 1000.0;
@@ -39,9 +39,9 @@ bool showGrid = false;
 GLuint computeProgram; // programs
 GLuint vbo, cbo;
 
-static GLuint arrayWidth, arrayHeight;
-static GLuint tex_velocity, tex_color, tex_position, fbo;
-static GLfloat time_step = 0.01;
+GLuint arrayWidth, arrayHeight;
+GLuint tex_velocity, tex_color, tex_position, fbo;
+GLfloat time_step = 0.01;
 
 void init();
 void makeGrid();
@@ -51,6 +51,7 @@ void computationPass();
 void mouseEventHandler(GLFWwindow* window, int button, int action, int mods);
 void motionEventHandler(GLFWwindow* window, double xpos, double ypos);
 void keyboardEventHandler(GLFWwindow* window, int key, int scancode, int action, int mods);
+void onResize(GLFWwindow* window, int width, int height);
 
 int main(int argc, char* argv[]) {
 	if (!glfwInit()) {
@@ -69,6 +70,10 @@ int main(int argc, char* argv[]) {
 	glfwMakeContextCurrent(window);
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 	glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, GL_TRUE);
+	glfwSetKeyCallback(window, keyboardEventHandler);
+	glfwSetMouseButtonCallback(window, mouseEventHandler);
+	glfwSetCursorPosCallback(window, motionEventHandler);
+	glfwSetWindowSizeCallback(window, onResize);
 
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK) {
@@ -84,11 +89,6 @@ int main(int argc, char* argv[]) {
 	const char* shaderCode[] = { readFileBytes("shader/flocking.vert"), readFileBytes("shader/flocking.frag") };
 	GLenum shaderType[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
 	computeProgram = buildProgram(shaderCode, shaderType, 2);
-
-	// set up opengl callback functions
-	glfwSetKeyCallback(window, keyboardEventHandler);
-	glfwSetMouseButtonCallback(window, mouseEventHandler);
-	glfwSetCursorPosCallback(window, motionEventHandler);
 
 
 	double lastTime = glfwGetTime();
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
 		sprintf(fpsTitle, "Flocking - FPS: %.2f", 1 / (nowTime - lastTime));
 		glfwSetWindowTitle(window, fpsTitle);
 		lastTime = nowTime;
-	} while (glfwWindowShouldClose(window) == 0);
+	} while (!glfwWindowShouldClose(window));
 
 	return EXIT_SUCCESS;
 }
@@ -413,27 +413,31 @@ void setupTextures() {
 void keyboardEventHandler(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
 		switch (key) {
-		case 'c': case 'C': {
-			// reset the camera to its initial position
-			camera->Reset();
-			break;
-		}
-		case 'r': case 'R': {
-			arrayHeight = ROOT_OF_NUM_PARTICLES;
-			arrayWidth = ROOT_OF_NUM_PARTICLES;
-			glPointSize(PointSize);
-			setupTextures();
-			break;
-		} case 'f': case 'F': {
-			camera->SetCenterOfFocus(Vector3d(0, 10, 0));
-			break;
-		} case 'g': case 'G':
-			showGrid = !showGrid;
-			break;
-
-		case 'q': case 'Q':	// q or esc - quit
-		case 27:		// esc
-			exit(EXIT_SUCCESS);
+			case 'c': case 'C': {
+				camera->Reset();
+				break;
+			}
+			case 'r': case 'R': {
+				arrayHeight = ROOT_OF_NUM_PARTICLES;
+				arrayWidth = ROOT_OF_NUM_PARTICLES;
+				glPointSize(PointSize);
+				setupTextures();
+				break;
+			} case 'f': case 'F': {
+				camera->SetCenterOfFocus(Vector3d(0, 10, 0));
+				break;
+			} case 'g': case 'G': {
+				showGrid = !showGrid;
+				break;
+			}
+			case 'q': case 'Q':	case GLFW_KEY_ESCAPE: {
+				exit(EXIT_SUCCESS);
+			}
 		}
 	}
+}
+
+void onResize(GLFWwindow* window, int width, int height) {
+	WIDTH = width;
+	HEIGHT = height;
 }
