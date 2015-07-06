@@ -30,13 +30,18 @@ int windowHeight = 768;
 int texSize = 64;
 int numParticles = texSize * texSize;
 
+bool showGrid = false;
 float pointSize = 2.0;
 float cohesion = 1000.0;
 float alignment = 80.0;
 float neighborRadius = 1.0;
 float collisionRadius = 0.1;
 float timeStep = 0.01;
-bool showGrid = false;
+
+mat4 model = mat4(0.1f);
+mat4 view = lookAt(vec3(4, 3, 3), vec3(-8, -8, 0), vec3(-4, 8, 0));
+mat4 projection = perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
+mat4 mvp = projection * view * model;
 
 GLuint computeProgram, displayProgram;
 GLuint velocityTex, colorTex, positionTex, displayTex;
@@ -51,6 +56,7 @@ void setupDisplay();
 void onKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 void onMouseButton(GLFWwindow* window, int button, int action, int mods);
 void onCursorPos(GLFWwindow* window, double xpos, double ypos);
+void onScroll(GLFWwindow* window, double xoffset, double yoffset);
 void onResize(GLFWwindow* window, int width, int height);
 
 int main(int argc, char* argv[]) {
@@ -71,10 +77,11 @@ int main(int argc, char* argv[]) {
 	glfwMakeContextCurrent(window);
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 	glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, GL_TRUE);
-	/*glfwSetKeyCallback(window, onKey);
-	glfwSetMouseButtonCallback(window, onMouseButton);
-	glfwSetCursorPosCallback(window, onCursorPos);
-	glfwSetWindowSizeCallback(window, onResize);*/
+	glfwSetKeyCallback(window, onKey);
+	//glfwSetMouseButtonCallback(window, onMouseButton);
+	//glfwSetCursorPosCallback(window, onCursorPos);
+	glfwSetScrollCallback(window, onScroll);
+	glfwSetWindowSizeCallback(window, onResize);
 	checkError("glfw init");
 
 	glewExperimental = GL_TRUE;
@@ -82,6 +89,7 @@ int main(int argc, char* argv[]) {
 		throw runtime_error("Failed to initialize GLEW");
 	}
 	checkError("glew init");
+
 	// init texture, computation, display
 	initTexture();
 	checkError("initTexture");
@@ -98,12 +106,11 @@ int main(int argc, char* argv[]) {
 	setupDisplay();
 	checkError("setupDisplay");
 
+	// draw loop
 	double lastTime = glfwGetTime();
 	double nowTime;
 	char fpsTitle[32];
 	do {
-		//render current frame
-		//PerspDisplay();
 		glClearTexImage(displayTex, 0, GL_RGBA, GL_FLOAT, NULL);
 
 		glUseProgram(computeProgram);
@@ -111,10 +118,11 @@ int main(int argc, char* argv[]) {
 
 		glUseProgram(displayProgram);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, sizeof(GLfloat) * 8);
+
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 
-		// prepare for the next frame
+		// other stuff
 		nowTime = glfwGetTime();
 		snprintf(fpsTitle, 32, "Flocking - FPS: %.2f", 1 / (nowTime - lastTime));
 		glfwSetWindowTitle(window, fpsTitle);
@@ -216,13 +224,8 @@ void initComputation() {
 
 void setupComputation() {
 	glUseProgram(computeProgram);
-	
-	mat4 projection = perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
-	mat4 view = lookAt(vec3(4, 3, 3), vec3(-8, -8, 0), vec3(-4, 8, 0));
-	mat4 model = mat4(0.1f);
-	mat4 mvp = projection * view * model;
+	mvp = projection * view * model;
 	glUniformMatrix4fv(glGetUniformLocation(computeProgram, "mvp"), 1, GL_FALSE, &mvp[0][0]);
-	
 	glUseProgram(0);
 }
 
@@ -265,16 +268,15 @@ void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
 		switch (key) {
 			case 'c': case 'C': {
-				//camera->Reset();
+				setupComputation();
+				setupDisplay();
 				break;
 			}
 			case 'r': case 'R': {
-				texSize = texSize;
-				texSize = texSize;
-				glPointSize(pointSize);
 				setupTexture();
 				break;
-			} case 'f': case 'F': {
+			}
+			case 'f': case 'F': {
 				//camera->SetCenterOfFocus(Vector3d(0, 10, 0));
 				break;
 			} case 'g': case 'G': {
@@ -298,7 +300,18 @@ void onCursorPos(GLFWwindow* window, double xpos, double ypos) {
 	//camera->HandleMouseMotion(window, xpos, ypos);
 }
 
+void onScroll(GLFWwindow* window, double xoffset, double yoffset) {
+	cout << format("X: %1%, Y: %2%") % xoffset % yoffset << endl;
+	if (yoffset > 0) {
+		model *= 1.5;
+	} else {
+		model /= 1.5;
+	}
+	setupComputation();
+}
+
 void onResize(GLFWwindow* window, int width, int height) {
 	windowWidth = width;
 	windowHeight = height;
+	setupDisplay();
 }
