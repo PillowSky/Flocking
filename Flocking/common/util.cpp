@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
+#include <fstream>
 #include <boost/format.hpp>
 #include "util.hpp"
 
@@ -7,7 +8,10 @@ using namespace std;
 using namespace boost;
 
 const char* readFileBytes(const char* path) {
-	FILE* fp = fopen(path, "r");
+	ifstream sourceFile(path);
+	string* sourceCode = new string(istreambuf_iterator<char>(sourceFile), (istreambuf_iterator<char>()));
+	return sourceCode->c_str();
+	/*FILE* fp = fopen(path, "r");
 	if (!fp) {
 		throw runtime_error((format("File not found: %1%") % path).str());
 	}
@@ -19,9 +23,10 @@ const char* readFileBytes(const char* path) {
 	char* buffer = new char[size + 1];
 	fread(buffer, size, 1, fp);
 	fclose(fp);
-	buffer[size] = 0;
+	buffer[size - 1] = '\0';
+	buffer[size] = '\0';
 
-	return buffer;
+	return buffer;*/
 }
 
 GLuint buildShader(const char* shaderCode, GLenum shaderType) {

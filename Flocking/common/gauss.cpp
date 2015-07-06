@@ -41,7 +41,7 @@ double gauss(double mean, double std, int seed)
   double delta, gaussian_random_value;
 
   if (first_time){
-#ifdef WIN32
+#ifdef _WIN32
     srand((unsigned)seed);
 #else
     srand48(seed);
@@ -53,7 +53,7 @@ double gauss(double mean, double std, int seed)
   // compute uniform random number between 0.0 - 0.5, and a sign with 
   // probability 1/2 of being either + or -
   //
-#ifdef WIN32
+#ifdef _WIN32
   int rn = rand();
   u = double(rn) / double(RAND_MAX);
 #else

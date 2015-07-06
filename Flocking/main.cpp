@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
@@ -330,7 +331,7 @@ void setupTextures () {
 	int numParticles = arrayWidth*arrayHeight;
 	GLfloat *tex_data = new GLfloat[4*numParticles];
 	
-	srand48( time(NULL) );
+	//srand48( time(NULL) );
 	int seed = rand();
 	
 	// Init all to fit in uniform cube
