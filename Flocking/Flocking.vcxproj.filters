@@ -52,10 +52,13 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shader\flocking.frag">
+    <None Include="shader\flocking.comp">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="shader\flocking.vert">
+    <None Include="shader\display.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shader\display.vert">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

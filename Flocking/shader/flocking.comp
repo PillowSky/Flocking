@@ -1,0 +1,85 @@
+#version 440 core
+
+layout(rgba32f, binding = 0) uniform image2D positionTex;
+layout(rgba32f, binding = 1) uniform image2D velocityTex;
+layout(rgba32f, binding = 2) uniform image2D colorTex;
+layout(rgba32f, binding = 3) uniform image2D displayTex;
+
+uniform float timeStep;
+uniform int texSixe;
+
+uniform float cohesion;
+uniform float alignment;
+uniform float neighborRadius;
+uniform float collisionRadius;
+
+uniform mat4 mvp;
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+void main() {
+	vec3 position = imageLoad(positionTex, ivec2(gl_GlobalInvocationID.xy)).xyz;
+	vec3 velocity = imageLoad(velocityTex, ivec2(gl_GlobalInvocationID.xy)).xyz;
+	vec4 color    = imageLoad(colorTex, ivec2(gl_GlobalInvocationID.xy));
+
+	// update particle if visible
+	// Rule 1 : collision avoidance
+	vec3 c1 = vec3(0.0, 0.0, 0.0);
+	vec3 c2 = vec3(0.0, 0.0, 0.0);
+	vec3 c3 = vec3(0.0, 0.0, 0.0);
+	int N = 0;//texSixe * texSixe;
+
+	for (int i = 0; i < texSixe; i++) {
+		for (int j = 0; j < texSixe; j++) {
+			ivec2 coord = ivec2(i, j);
+
+			if (coord != ivec2(gl_GlobalInvocationID.xy)) {
+				vec3 position_n = imageLoad(positionTex, coord).xyz;
+				vec3 velocity_n = imageLoad(velocityTex, coord).xyz;
+
+				// Rule 1 : Collision avoidance
+				if (length(position_n - position) < collisionRadius) { // Possible collision, avoid
+					c1 -= position_n - position;
+				}
+				if (length(position_n - position) < neighborRadius) {
+					// Rule 2 : cohesion, add up all position
+					c2 += position_n;
+					// Rule 3 : alignment, velocity
+					c3 += velocity_n;
+					N++;
+				}
+			}
+		}
+	}
+
+	c2 = c2 / (N + 1);
+	c2 = (c2 - position) / cohesion;
+
+	c3 = c3 / (N + 1);
+	c3 = (c3 - velocity) / alignment;
+
+	// Constrain to sphere
+	vec3 c4 = vec3(0.0, 0.0, 0.0);
+	if (length(position) > 1.5)
+		c4 = -1 * position / 5.0;
+
+	velocity.xyz += c1 + c2 + c3 + c4;
+	// Limit velocity
+	if (length(velocity) > 3.0) {
+		velocity = (velocity / length(velocity)) * 3.0;
+	}
+
+	position.xyz += velocity.xyz * timeStep;
+
+	// update position
+	imageStore(positionTex, ivec2(gl_GlobalInvocationID.xy), vec4(position.xyz, 1.0));
+
+	// update velocity and lifetime
+	imageStore(velocityTex, ivec2(gl_GlobalInvocationID.xy), vec4(velocity.xyz, 0));
+
+	// update color
+	imageStore(colorTex, ivec2(gl_GlobalInvocationID.xy), vec4(color.xyz, 1.0));
+
+	vec4 screen = mvp * vec4(position.xyz, 1.0f);
+	imageStore(displayTex, ivec2(screen.x * 1024, screen.y * 768), vec4(color.xyz, 1.0));
+}
