@@ -11,7 +11,7 @@
 #include "camera.h"
 
 #include <GL/glew.h>
-#include <GL/glut.h>
+#include <GLFW/glfw3.h>
 
 using namespace std;
 
@@ -283,13 +283,12 @@ void Camera::PerspectiveDisplay(int W, int H) {
  * mouse event handler function... should be called in the 
  * mouse event handler function of your own code
  */
-void Camera::HandleMouseEvent(int button, int state, int x, int y) {
+void Camera::HandleMouseEvent(GLFWwindow* window, int button, int action, int mods) {
   double realy, wx, wy, wz;
   
   // check to see if the ALT key has been used
-  int mode = glutGetModifiers();
-  
-  if (state == GLUT_UP && CameraMode != INACTIVE) {
+
+  if (action == GLFW_RELEASE && CameraMode != INACTIVE) {
     // update the elevation and roll of the camera
     CurrentElev += DeltaElev;
     CurrentAzim += DeltaAzim;
@@ -300,20 +299,22 @@ void Camera::HandleMouseEvent(int button, int state, int x, int y) {
     DeltaElev = DeltaAzim = 0.0;
     
     CameraMode = INACTIVE;
-  } else if (state == GLUT_DOWN){ // && mode == GLUT_ACTIVE_ALT) {
+  } else if (action == GLFW_PRESS){
     
     // set the new mouse state
-    MouseStartX = MousePrevX = x;
-    MouseStartY = MousePrevY = y;
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+    MouseStartX = MousePrevX = xpos;
+    MouseStartY = MousePrevY = ypos;
     
     // alt key and mouse button have been pressed, camera will move
     
     switch (button) {
-      case GLUT_LEFT_BUTTON:
+      case GLFW_MOUSE_BUTTON_LEFT:
 	// rotating camera
 	CameraMode = ROTATE;
 	break;
-      case GLUT_MIDDLE_BUTTON:
+      case GLFW_MOUSE_BUTTON_MIDDLE:
 	// translating camera:
 	CameraMode = TRANSLATE;
 	
@@ -324,7 +325,7 @@ void Camera::HandleMouseEvent(int button, int state, int x, int y) {
 	glGetDoublev(GL_PROJECTION_MATRIX, ProjMatrix);
 	
 	// viewport[3] is height of window in pixels
-	realy = ViewPort[3] - y - 1;
+	realy = ViewPort[3] - ypos - 1;
 	
 	// project the aim of the camera into window coordinates
 	// only concerned about getting the depth (wz) from here
@@ -334,12 +335,12 @@ void Camera::HandleMouseEvent(int button, int state, int x, int y) {
 	
 	// from the depth found from the previous call, project the
 	// mouse coordinates into 3D coordinates
-	gluUnProject((GLdouble) x, (GLdouble) realy, wz,
+	gluUnProject((GLdouble) xpos, (GLdouble) realy, wz,
 		     MvMatrix, ProjMatrix, ViewPort, 
 		     &PrevMousePos.x, &PrevMousePos.y, &PrevMousePos.z);
 	
 	break;
-      case GLUT_RIGHT_BUTTON:
+      case GLFW_MOUSE_BUTTON_RIGHT:
 	// zooming camera:
 	CameraMode = ZOOM;
 	break;
@@ -351,7 +352,7 @@ void Camera::HandleMouseEvent(int button, int state, int x, int y) {
  * Mouse Motion handler function... should be called in the 
  * mouse motion function of your own code
  */
-void Camera::HandleMouseMotion(int x, int y) {
+void Camera::HandleMouseMotion(GLFWwindow* window, double xpos, double ypos) {
   int mouse_dx, mouse_dy, d;
   double z;
   Vector3d MousePos, dir;
@@ -362,8 +363,8 @@ void Camera::HandleMouseMotion(int x, int y) {
   if (CameraMode != INACTIVE) {
     
     // find the greates change in mouse position 
-    mouse_dx = x - MousePrevX;
-    mouse_dy = y - MousePrevY;
+    mouse_dx = xpos - MousePrevX;
+    mouse_dy = ypos - MousePrevY;
     
     if (abs(mouse_dx) > abs(mouse_dy)) 
       d = mouse_dx;
@@ -391,8 +392,8 @@ void Camera::HandleMouseMotion(int x, int y) {
 	
 	// get rate of change in screen coordinates from when the 
 	// mouse was first pressed
-	DeltaAzim = ((double) (x - MouseStartX)) / 5.0;
-	DeltaElev = ((double) (y - MouseStartY)) / 5.0;
+	DeltaAzim = ((double) (xpos - MouseStartX)) / 5.0;
+	DeltaElev = ((double) (ypos - MouseStartY)) / 5.0;
 	
 	// get rate of change in screen coordinate from prev mouse pos
 	LocalDeltaAzim = ((double) mouse_dx)  / 5.0;
@@ -427,13 +428,13 @@ void Camera::HandleMouseMotion(int x, int y) {
       case TRANSLATE:
 	// camera is translating
 	
-	realy = ViewPort[3] - y - 1;
+	realy = ViewPort[3] - ypos - 1;
 	
 	gluProject(Aim.x, Aim.y, Aim.z, 
 		   MvMatrix, ProjMatrix, ViewPort, 
 		   &wx, &wy, &wz);
 	
-	gluUnProject((GLdouble) x, (GLdouble) realy, wz, 
+	gluUnProject((GLdouble) xpos, (GLdouble) realy, wz, 
 		     MvMatrix, ProjMatrix, ViewPort,
 		     &MousePos.x, &MousePos.y, &MousePos.z);
 	
@@ -446,8 +447,8 @@ void Camera::HandleMouseMotion(int x, int y) {
 	break;
     }
     
-    MousePrevX = x;
-    MousePrevY = y;
+    MousePrevX = xpos;
+    MousePrevY = ypos;
   }
 }
 

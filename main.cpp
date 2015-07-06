@@ -1,5 +1,6 @@
 #include <GL/glew.h>
-#include <GL/glut.h>
+#include <GLFW/glfw3.h>
+
 #include <stdexcept>
 #include "common/camera.h"
 #include "common/gauss.h"
@@ -10,7 +11,7 @@ using namespace std;
 const int WIDTH = 1024;
 const int HEIGHT = 768;
 const int TIMERMSECS = 1000 / 60;
-int ROOT_OF_NUM_PARTICLES = 5120;
+int ROOT_OF_NUM_PARTICLES = 64;
 // I *think* powers of 2 are most performant, have not profiled it though
 // 256 has best performance with most particles (65,536)
 // 512 still runs on my little compy pretty well : 262,144 particles (woot!)
@@ -19,7 +20,7 @@ int ROOT_OF_NUM_PARTICLES = 5120;
 float Restitution = 0.8;
 float GravityVY = -4.9;
 float Mass = 1.0;
-float PointSize = 1.0;
+float PointSize = 3.0;
 int persp_win;
 float Cohesion=1000.0;
 float Alignment=80.0;
@@ -32,11 +33,11 @@ bool showGrid = false;
 
 GLuint computeProgram; // programs
 GLuint vbo, cbo;
-GLfloat step=0.0;
+GLfloat step = 0.0;
 
 static GLuint arrayWidth, arrayHeight;
 static GLuint tex_velocity, tex_color, tex_position, fbo;
-static GLfloat time_step = 0.005;
+static GLfloat time_step = 0.01;
 
 const char *ParamFilename = NULL;
 
@@ -45,29 +46,35 @@ void makeGrid();
 void setupTextures();
 void PerspDisplay();
 void computationPass();
-void animate(int value);
-void LoadParameters(const char *filename);
-void mouseEventHandler(int button, int state, int x, int y);
-void motionEventHandler(int x, int y);
-void keyboardEventHandler(unsigned char key, int x, int y);
+void animate();
+void mouseEventHandler(GLFWwindow* window, int button, int action, int mods);
+void motionEventHandler(GLFWwindow* window, double xpos, double ypos);
+void keyboardEventHandler(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 int main(int argc, char* argv[]) {
-	// set up opengl window
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE | GLUT_MULTISAMPLE);
-	glutInitWindowSize(WIDTH, HEIGHT);
-	glutInitWindowPosition(50, 50);
-	persp_win = glutCreateWindow("Basic GPU Boids");
+	if (!glfwInit()) {
+		throw runtime_error("Failed to initialize GLFW");
+	}
+
+	glfwWindowHint(GLFW_SAMPLES, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+	//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Flocking", NULL, NULL);
+	if (!window) {
+		throw runtime_error("Failed to open GLFW window");
+	}
+	glfwMakeContextCurrent(window);
+	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+	glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, GL_TRUE);
 
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK) {
 		throw runtime_error("Failed to initialize GLEW");
 	}
 
-	glEnable(GL_MULTISAMPLE_ARB);
-
 	// initialize the camera and such
-	LoadParameters("parameters");
 	init();
 	
 	// Textures for lookup
@@ -78,13 +85,27 @@ int main(int argc, char* argv[]) {
 	computeProgram = buildProgram(shaderCode, shaderType, 2);
 	
 	// set up opengl callback functions
-	glutDisplayFunc(PerspDisplay);
-	glutMouseFunc(mouseEventHandler);
-	glutMotionFunc(motionEventHandler);
-	glutKeyboardFunc(keyboardEventHandler);
+	glfwSetKeyCallback(window, keyboardEventHandler);
+	glfwSetMouseButtonCallback(window, mouseEventHandler);
+	glfwSetCursorPosCallback(window, motionEventHandler);
+
+
+	do {
+		//render current frame
+		PerspDisplay();
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+
+		// prepare for the next frame
+		animate();
+	} while (glfwWindowShouldClose(window) == 0);
+
+
+	//glutDisplayFunc(PerspDisplay);
+	//glutMouseFunc(mouseEventHandler);
+	//glutMotionFuncx(motionEventHandler);
 	
-	glutTimerFunc(TIMERMSECS, animate, 0);
-	glutMainLoop();
+	//glutTimerFunc(TIMERMSECS, animate, 0);
 
 	return EXIT_SUCCESS;
 }
@@ -222,8 +243,6 @@ void PerspDisplay() {
 	glEnable(GL_DEPTH_TEST);
 	glDepthMask(GL_TRUE);
 	glDisable(GL_BLEND);
-	
-	glutSwapBuffers();
 }
 
 void computationPass() {
@@ -288,43 +307,22 @@ void computationPass() {
 	glDisable(GL_TEXTURE_2D);
 }
 
-void animate(int value) {
-	glutPostRedisplay();
-	
+void animate() {
 	computationPass();
-	step+=1.0;
-	if (step >= arrayWidth*arrayHeight)
+	if (++step >= arrayWidth*arrayHeight) {
 		step = 0;
-	   
-	glutTimerFunc(TIMERMSECS, animate, 0);
+	}
 }
 
 
-void mouseEventHandler(int button, int state, int x, int y) {
+void mouseEventHandler(GLFWwindow* window, int button, int action, int mods) {
 	// let the camera handle some specific mouse events (similar to maya)
-	camera->HandleMouseEvent(button, state, x, y);
+	camera->HandleMouseEvent(window, button, action, mods);
 }
 
-void motionEventHandler(int x, int y) {
+void motionEventHandler(GLFWwindow* window, double xpos, double ypos) {
 	// let the camera handle some mouse motions if the camera is to be moved
-	camera->HandleMouseMotion(x, y);
-	glutPostRedisplay();
-}
-
-void LoadParameters(const char *filename){
-	FILE* paramfile;
-	
-	if((paramfile = fopen(filename, "r")) == NULL){
-		fprintf(stderr, "error opening parameter file %s\n", filename);
-		exit(1);
-	}
-	ParamFilename = filename;
-	if(fscanf(paramfile, " %f %f %d %f %f %f %f",
-			  &time_step, &PointSize, &ROOT_OF_NUM_PARTICLES, &Cohesion, &Alignment, &NeighborRadius, &CollisionRadius) != 7){
-		fprintf(stderr, "error reading parameter file %s\n", filename);
-		fclose(paramfile);
-		exit(1);
-	}
+	camera->HandleMouseMotion(window, xpos, ypos);
 }
 
 void setupTextures () {
@@ -420,7 +418,7 @@ void setupTextures () {
 }
 
 
-void keyboardEventHandler(unsigned char key, int x, int y) {
+void keyboardEventHandler(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	switch (key) {
 		case 'c': case 'C': {
 			// reset the camera to its initial position
@@ -428,7 +426,6 @@ void keyboardEventHandler(unsigned char key, int x, int y) {
 			break;
 		}
 		case 'r': case 'R': {
-			LoadParameters("parameters");
 			arrayHeight = ROOT_OF_NUM_PARTICLES;
 			arrayWidth = ROOT_OF_NUM_PARTICLES;
 			step = 0;
@@ -446,6 +443,4 @@ void keyboardEventHandler(unsigned char key, int x, int y) {
 		case 27:		// esc
 			exit(0);
 	}
-	
-	glutPostRedisplay();
 }

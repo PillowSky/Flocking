@@ -13,6 +13,9 @@
 
 #include "matrix.h"
 #include <stdio.h>
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
+
 #define INACTIVE 0
 #define TRANSLATE 1
 #define ROTATE 2
@@ -83,10 +86,10 @@ public:
   void PerspectiveDisplay(int W, int H);
   
   // function that handles mouse events
-  void HandleMouseEvent(int button, int state, int x, int y);
+  void HandleMouseEvent(GLFWwindow* window, int button, int action, int mods);
   
   // function that handles mouse movements
-  void HandleMouseMotion(int x, int y);
+  void HandleMouseMotion(GLFWwindow* window, double xpos, double ypos);
   
   const Camera& operator=(const Camera& cam);
 };
