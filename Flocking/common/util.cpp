@@ -13,7 +13,7 @@ const char* readFileBytes(const char* path) {
 	return sourceCode->c_str();
 	/*FILE* fp = fopen(path, "r");
 	if (!fp) {
-		throw runtime_error((format("File not found: %1%") % path).str());
+	throw runtime_error((format("File not found: %1%") % path).str());
 	}
 
 	fseek(fp, 0, SEEK_END);
