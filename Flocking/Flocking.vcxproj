@@ -123,7 +123,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common\camera.h" />
-    <ClInclude Include="common\gauss.h" />
     <ClInclude Include="common\matrix.h" />
     <ClInclude Include="common\util.hpp" />
     <ClInclude Include="common\utility.h" />
@@ -131,7 +130,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="common\camera.cpp" />
-    <ClCompile Include="common\gauss.cpp" />
     <ClCompile Include="common\matrix.cpp" />
     <ClCompile Include="common\util.cpp" />
     <ClCompile Include="common\utility.cpp" />

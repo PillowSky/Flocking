@@ -10,13 +10,13 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
+#include <random>
 #include <boost/format.hpp>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
 #include "common/camera.h"
-#include "common/gauss.h"
 #include "common/util.hpp"
 
 using namespace std;
@@ -322,9 +322,6 @@ void setupTextures() {
 	int numParticles = arrayWidth*arrayHeight;
 	GLfloat *tex_data = new GLfloat[4 * numParticles];
 
-	//srand48( time(NULL) );
-	int seed = rand();
-
 	// Init all to fit in uniform cube
 	for (int i = 0; i < numParticles; ++i) {
 		tex_data[4 * i + 0] = ((float)rand() / RAND_MAX)*2.0 - 1.0;
@@ -342,11 +339,14 @@ void setupTextures() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, arrayWidth, arrayHeight, 0, GL_RGBA, GL_FLOAT, &tex_data[0]);
 
-	// Init all the velocities, 
+	// Init all the velocities
+	default_random_engine generator(rand());
+	normal_distribution<double> distribution(0.0, 2.8);
+
 	for (int i = 0; i < numParticles; ++i) {
-		tex_data[i * 4 + 0] = gauss(0.0, 2.8, seed);
-		tex_data[i * 4 + 1] = gauss(0.0, 2.8, seed);
-		tex_data[i * 4 + 2] = gauss(0.0, 2.8, seed);
+		tex_data[i * 4 + 0] = distribution(generator);
+		tex_data[i * 4 + 1] = distribution(generator);
+		tex_data[i * 4 + 2] = distribution(generator);
 		tex_data[i * 4 + 3] = 0.0;
 	}
 
