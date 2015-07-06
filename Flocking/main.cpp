@@ -8,7 +8,9 @@
 *
 */
 
-#define _CRT_SECURE_NO_WARNINGS
+#ifdef _WIN32
+	#define snprintf sprintf_s
+#endif
 
 #include <iostream>
 #include <random>
@@ -48,9 +50,9 @@ void makeGrid();
 void setupTextures();
 void PerspDisplay();
 void computationPass();
-void mouseEventHandler(GLFWwindow* window, int button, int action, int mods);
-void motionEventHandler(GLFWwindow* window, double xpos, double ypos);
-void keyboardEventHandler(GLFWwindow* window, int key, int scancode, int action, int mods);
+void onMouseButton(GLFWwindow* window, int button, int action, int mods);
+void onCursorPos(GLFWwindow* window, double xpos, double ypos);
+void onKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 void onResize(GLFWwindow* window, int width, int height);
 
 int main(int argc, char* argv[]) {
@@ -70,9 +72,9 @@ int main(int argc, char* argv[]) {
 	glfwMakeContextCurrent(window);
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 	glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, GL_TRUE);
-	glfwSetKeyCallback(window, keyboardEventHandler);
-	glfwSetMouseButtonCallback(window, mouseEventHandler);
-	glfwSetCursorPosCallback(window, motionEventHandler);
+	glfwSetKeyCallback(window, onKey);
+	glfwSetMouseButtonCallback(window, onMouseButton);
+	glfwSetCursorPosCallback(window, onCursorPos);
 	glfwSetWindowSizeCallback(window, onResize);
 
 	glewExperimental = GL_TRUE;
@@ -103,7 +105,7 @@ int main(int argc, char* argv[]) {
 		// prepare for the next frame
 		computationPass();
 		nowTime = glfwGetTime();
-		sprintf(fpsTitle, "Flocking - FPS: %.2f", 1 / (nowTime - lastTime));
+		snprintf(fpsTitle, 32, "Flocking - FPS: %.2f", 1 / (nowTime - lastTime));
 		glfwSetWindowTitle(window, fpsTitle);
 		lastTime = nowTime;
 	} while (!glfwWindowShouldClose(window));
@@ -123,8 +125,7 @@ void init() {
 	glEnable(GL_NORMALIZE);
 	glPointSize(PointSize);
 	glEnable(GL_BLEND);
-	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE); // Additive
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 	arrayHeight = ROOT_OF_NUM_PARTICLES;
 	arrayWidth = ROOT_OF_NUM_PARTICLES;
 }
@@ -307,12 +308,12 @@ void computationPass() {
 	glDisable(GL_TEXTURE_2D);
 }
 
-void mouseEventHandler(GLFWwindow* window, int button, int action, int mods) {
+void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
 	// let the camera handle some specific mouse events (similar to maya)
 	camera->HandleMouseEvent(window, button, action, mods);
 }
 
-void motionEventHandler(GLFWwindow* window, double xpos, double ypos) {
+void onCursorPos(GLFWwindow* window, double xpos, double ypos) {
 	// let the camera handle some mouse motions if the camera is to be moved
 	camera->HandleMouseMotion(window, xpos, ypos);
 }
@@ -410,7 +411,7 @@ void setupTextures() {
 }
 
 
-void keyboardEventHandler(GLFWwindow* window, int key, int scancode, int action, int mods) {
+void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
 		switch (key) {
 			case 'c': case 'C': {
