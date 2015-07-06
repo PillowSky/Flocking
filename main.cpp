@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
 		throw runtime_error("Failed to initialize GLFW");
 	}
 
-	glfwWindowHint(GLFW_SAMPLES, 4);
+	//glfwWindowHint(GLFW_SAMPLES, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 	//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -90,6 +90,9 @@ int main(int argc, char* argv[]) {
 	glfwSetCursorPosCallback(window, motionEventHandler);
 
 
+	double lastTime = glfwGetTime();
+	double nowTime;
+	char fpsTitle[32];
 	do {
 		//render current frame
 		PerspDisplay();
@@ -98,14 +101,11 @@ int main(int argc, char* argv[]) {
 
 		// prepare for the next frame
 		animate();
+		nowTime = glfwGetTime();
+		sprintf(fpsTitle, "Flocking - FPS: %.2f", 1 / (nowTime - lastTime));
+		glfwSetWindowTitle(window, fpsTitle);
+		lastTime = nowTime;
 	} while (glfwWindowShouldClose(window) == 0);
-
-
-	//glutDisplayFunc(PerspDisplay);
-	//glutMouseFunc(mouseEventHandler);
-	//glutMotionFuncx(motionEventHandler);
-	
-	//glutTimerFunc(TIMERMSECS, animate, 0);
 
 	return EXIT_SUCCESS;
 }
