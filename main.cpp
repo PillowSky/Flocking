@@ -12,7 +12,7 @@
 const int WIDTH = 1024;
 const int HEIGHT = 768;
 const int TIMERMSECS = 1000 / 60;
-int ROOT_OF_NUM_PARTICLES = 256;
+int ROOT_OF_NUM_PARTICLES = 1024;
 // I *think* powers of 2 are most performant, have not profiled it though
 // 256 has best performance with most particles (65,536)
 // 512 still runs on my little compy pretty well : 262,144 particles (woot!)
@@ -44,13 +44,13 @@ const char *ParamFilename = NULL;
 
 void init();
 void makeGrid();
+void setupTextures();
 void PerspDisplay();
 void computationPass();
 void animate(int value);
+void LoadParameters(const char *filename);
 void mouseEventHandler(int button, int state, int x, int y);
 void motionEventHandler(int x, int y);
-void LoadParameters(const char *filename);
-void setupTextures();
 void keyboardEventHandler(unsigned char key, int x, int y);
 
 int main(int argc, char* argv[]) {
@@ -145,10 +145,11 @@ void makeGrid() {
 void PerspDisplay() {
 	glDrawBuffer(GL_BACK);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClearColor(0.7f, 0.7f, 0.7f, 0.7f);
 	// draw the camera created in perspective
 	camera->PerspectiveDisplay(WIDTH, HEIGHT);
 	glMatrixMode(GL_MODELVIEW);
-	
+
 	// Show the grid
 	glLoadIdentity();
 	glScalef(2.0, 0.0, 2.0);
@@ -197,7 +198,6 @@ void PerspDisplay() {
 	glScalef(5.0, 5.0, 5.0);
 	glTranslatef(0.0, 2.0, 0.0);
 
-	
 	// Enable vertex arrays, bind our buffer with the texture PBO converted to VBO
 	// Then draw the verts.
 	glEnableClientState(GL_VERTEX_ARRAY);
@@ -262,9 +262,9 @@ void computationPass() {
 	glTexCoord2f(0.0, 0.0);
 	glVertex2f(0.0, 0.0);
 	glTexCoord2f(1.0, 0.0);
-	glVertex2f( arrayWidth, 0.0);
+	glVertex2f(arrayWidth, 0.0);
 	glTexCoord2f(1.0, 1.0);
-	glVertex2f( arrayWidth,  arrayHeight);
+	glVertex2f(arrayWidth, arrayHeight);
 	glTexCoord2f(0.0, 1.0);
 	glVertex2f(0.0, arrayHeight);
 	glEnd();
@@ -307,8 +307,7 @@ void motionEventHandler(int x, int y) {
 }
 
 void LoadParameters(const char *filename){
-	
-	FILE *paramfile;
+	FILE* paramfile;
 	
 	if((paramfile = fopen(filename, "r")) == NULL){
 		fprintf(stderr, "error opening parameter file %s\n", filename);
@@ -367,9 +366,9 @@ void setupTextures () {
 
 	// Init all the colors and storage
 	for (int i = 0; i < numParticles; ++i) {
-		tex_data[i*4+0] = ((float) rand() / RAND_MAX) * 0.1 + 0.5;
-		tex_data[i*4+1] = ((float) rand() / RAND_MAX) * 0.2;
-		tex_data[i*4+2] = ((float) rand() / RAND_MAX) * 0.2;
+		tex_data[i*4+0] = ((float) rand() / RAND_MAX) * 0.3;
+		tex_data[i*4+1] = ((float) rand() / RAND_MAX) * 0.3;
+		tex_data[i*4+2] = ((float) rand() / RAND_MAX) * 0.1 + 0.5;
 		tex_data[i*4+3] = 0.0; // Initially invisible
 	}
 	glGenTextures(1, &tex_color);
