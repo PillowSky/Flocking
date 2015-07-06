@@ -10,11 +10,8 @@
 
 #include "camera.h"
 
-#ifdef __APPLE__
-#  include <GLUT/glut.h>
-#else
-#  include <GL/glut.h>
-#endif
+#include <GL/glew.h>
+#include <GL/glut.h>
 
 using namespace std;
 

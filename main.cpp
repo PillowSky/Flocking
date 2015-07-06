@@ -1,18 +1,16 @@
-#define GL_GLEXT_PROTOTYPES 1
-#include <GL/gl.h>
-#include <GL/glu.h>
+#include <GL/glew.h>
 #include <GL/glut.h>
-#include <GL/glx.h>
-#include <GL/glext.h>
-
+#include <stdexcept>
 #include "common/camera.h"
 #include "common/gauss.h"
 #include "common/util.hpp"
 
+using namespace std;
+
 const int WIDTH = 1024;
 const int HEIGHT = 768;
 const int TIMERMSECS = 1000 / 60;
-int ROOT_OF_NUM_PARTICLES = 1024;
+int ROOT_OF_NUM_PARTICLES = 5120;
 // I *think* powers of 2 are most performant, have not profiled it though
 // 256 has best performance with most particles (65,536)
 // 512 still runs on my little compy pretty well : 262,144 particles (woot!)
@@ -30,7 +28,7 @@ float CollisionRadius=0.1;
 
 Camera *camera;
 
-bool showGrid = true;
+bool showGrid = false;
 
 GLuint computeProgram; // programs
 GLuint vbo, cbo;
@@ -56,11 +54,18 @@ void keyboardEventHandler(unsigned char key, int x, int y);
 int main(int argc, char* argv[]) {
 	// set up opengl window
 	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE | GLUT_MULTISAMPLE);
 	glutInitWindowSize(WIDTH, HEIGHT);
 	glutInitWindowPosition(50, 50);
 	persp_win = glutCreateWindow("Basic GPU Boids");
-	
+
+	glewExperimental = GL_TRUE;
+	if (glewInit() != GLEW_OK) {
+		throw runtime_error("Failed to initialize GLEW");
+	}
+
+	glEnable(GL_MULTISAMPLE_ARB);
+
 	// initialize the camera and such
 	LoadParameters("parameters");
 	init();
@@ -90,7 +95,7 @@ void init() {
 	camera = new Camera(Vector3d(0, 12, 30), Vector3d(0, 12, 0), Vector3d(0, 1, 0));
 	camera->SetCenterOfFocus(Vector3d(0, 12, 0));
 	// grey background for window
-	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	glShadeModel(GL_SMOOTH);
 	glDepthRange(0.0, 1.0);
 	glEnable(GL_NORMALIZE);
@@ -145,7 +150,7 @@ void makeGrid() {
 void PerspDisplay() {
 	glDrawBuffer(GL_BACK);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glClearColor(0.7f, 0.7f, 0.7f, 0.7f);
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	// draw the camera created in perspective
 	camera->PerspectiveDisplay(WIDTH, HEIGHT);
 	glMatrixMode(GL_MODELVIEW);
@@ -366,8 +371,8 @@ void setupTextures () {
 
 	// Init all the colors and storage
 	for (int i = 0; i < numParticles; ++i) {
-		tex_data[i*4+0] = ((float) rand() / RAND_MAX) * 0.3;
-		tex_data[i*4+1] = ((float) rand() / RAND_MAX) * 0.3;
+		tex_data[i*4+0] = ((float) rand() / RAND_MAX) * 0.1;
+		tex_data[i*4+1] = ((float) rand() / RAND_MAX) * 0.1;
 		tex_data[i*4+2] = ((float) rand() / RAND_MAX) * 0.1 + 0.5;
 		tex_data[i*4+3] = 0.0; // Initially invisible
 	}

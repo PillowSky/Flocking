@@ -13,7 +13,7 @@ const char* readFileBytes(const char* path) {
 	}
 
 	fseek(fp, 0, SEEK_END);
-	long size = ftell(fp);
+	size_t size = ftell(fp);
 	rewind(fp);
 
 	char* buffer = new char[size + 1];
