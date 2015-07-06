@@ -1,53 +1,53 @@
+/*
+* Flocking
+*
+* Flocking animation with avoidance(separation), cohesion, and alignment on a local scale.
+* Completely implemented with glsl.
+*
+* 2015 Yuzo(Huang Yuzhong)
+*
+*/
+
 #define _CRT_SECURE_NO_WARNINGS
+#include <iostream>
+#include <boost/format.hpp>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
-#include <stdexcept>
 #include "common/camera.h"
 #include "common/gauss.h"
 #include "common/util.hpp"
 
 using namespace std;
+using namespace boost;
+using namespace glm;
 
 const int WIDTH = 1024;
 const int HEIGHT = 768;
-const int TIMERMSECS = 1000 / 60;
-int ROOT_OF_NUM_PARTICLES = 64;
-// I *think* powers of 2 are most performant, have not profiled it though
-// 256 has best performance with most particles (65,536)
-// 512 still runs on my little compy pretty well : 262,144 particles (woot!)
-// 1024 is slow, run out of texture space at that point for my crappy card, : 1,048,576 particles (woot*2!)
+const int ROOT_OF_NUM_PARTICLES = 64;
 
-float Restitution = 0.8;
-float GravityVY = -4.9;
-float Mass = 1.0;
 float PointSize = 3.0;
-int persp_win;
 float Cohesion = 1000.0;
 float Alignment = 80.0;
 float NeighborRadius = 1.0;
 float CollisionRadius = 0.1;
 
-Camera *camera;
-
+Camera* camera;
 bool showGrid = false;
 
 GLuint computeProgram; // programs
 GLuint vbo, cbo;
-GLfloat step = 0.0;
 
 static GLuint arrayWidth, arrayHeight;
 static GLuint tex_velocity, tex_color, tex_position, fbo;
 static GLfloat time_step = 0.01;
-
-const char *ParamFilename = NULL;
 
 void init();
 void makeGrid();
 void setupTextures();
 void PerspDisplay();
 void computationPass();
-void animate();
 void mouseEventHandler(GLFWwindow* window, int button, int action, int mods);
 void motionEventHandler(GLFWwindow* window, double xpos, double ypos);
 void keyboardEventHandler(GLFWwindow* window, int key, int scancode, int action, int mods);
@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
 		throw runtime_error("Failed to initialize GLFW");
 	}
 
-	//glfwWindowHint(GLFW_SAMPLES, 4);
+	glfwWindowHint(GLFW_SAMPLES, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 	//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -101,7 +101,7 @@ int main(int argc, char* argv[]) {
 		glfwPollEvents();
 
 		// prepare for the next frame
-		animate();
+		computationPass();
 		nowTime = glfwGetTime();
 		sprintf(fpsTitle, "Flocking - FPS: %.2f", 1 / (nowTime - lastTime));
 		glfwSetWindowTitle(window, fpsTitle);
@@ -180,10 +180,9 @@ void PerspDisplay() {
 	// Show the grid
 	glLoadIdentity();
 	glScalef(2.0, 0.0, 2.0);
-	if (showGrid)
+	if (showGrid) {
 		makeGrid();
-
-
+	}
 	// Now get the framebuffer we rendered textures to
 	// bind the textures and enable them as well
 	glLoadIdentity();
@@ -308,14 +307,6 @@ void computationPass() {
 	glDisable(GL_TEXTURE_2D);
 }
 
-void animate() {
-	computationPass();
-	if (++step >= arrayWidth*arrayHeight) {
-		step = 0;
-	}
-}
-
-
 void mouseEventHandler(GLFWwindow* window, int button, int action, int mods) {
 	// let the camera handle some specific mouse events (similar to maya)
 	camera->HandleMouseEvent(window, button, action, mods);
@@ -430,7 +421,6 @@ void keyboardEventHandler(GLFWwindow* window, int key, int scancode, int action,
 		case 'r': case 'R': {
 			arrayHeight = ROOT_OF_NUM_PARTICLES;
 			arrayWidth = ROOT_OF_NUM_PARTICLES;
-			step = 0;
 			glPointSize(PointSize);
 			setupTextures();
 			break;
