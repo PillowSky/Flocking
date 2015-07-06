@@ -118,18 +118,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="common\camera.h" />
-    <ClInclude Include="common\matrix.h" />
     <ClInclude Include="common\util.hpp" />
-    <ClInclude Include="common\utility.h" />
-    <ClInclude Include="common\vector.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="common\camera.cpp" />
-    <ClCompile Include="common\matrix.cpp" />
     <ClCompile Include="common\util.cpp" />
-    <ClCompile Include="common\utility.cpp" />
-    <ClCompile Include="common\vector.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
