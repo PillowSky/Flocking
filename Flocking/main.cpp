@@ -25,6 +25,13 @@ using namespace std;
 using namespace boost;
 using namespace glm;
 
+typedef enum {
+	inActive,
+	rotate,
+	translate,
+	zoom
+} MouseStatus;
+
 int windowWidth = 1024;
 int windowHeight = 768;
 int texSize = 64;
@@ -38,13 +45,20 @@ float neighborRadius = 1.0;
 float collisionRadius = 0.1;
 float timeStep = 0.01;
 
-mat4 model = mat4(0.1f);
-mat4 view = lookAt(vec3(4, 3, 3), vec3(-8, -8, 0), vec3(-4, 8, 0));
 mat4 projection = perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
+vec3 cameraPosition = vec3(10, 3, 3);
+vec3 cameraFocus = vec3(0, 0, 0);
+vec3 cameraHeadup = vec3(0, 1, 0);
+mat4 view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
+mat4 model = mat4(1.0f);
 mat4 mvp = projection * view * model;
 
 GLuint computeProgram, displayProgram;
 GLuint velocityTex, colorTex, positionTex, displayTex;
+
+MouseStatus mouseStatus;
+vec2 mousePosition;
+vec3 lastCameraPosition;
 
 void initTexture();
 void initComputation();
@@ -78,8 +92,8 @@ int main(int argc, char* argv[]) {
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 	glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, GL_TRUE);
 	glfwSetKeyCallback(window, onKey);
-	//glfwSetMouseButtonCallback(window, onMouseButton);
-	//glfwSetCursorPosCallback(window, onCursorPos);
+	glfwSetMouseButtonCallback(window, onMouseButton);
+	glfwSetCursorPosCallback(window, onCursorPos);
 	glfwSetScrollCallback(window, onScroll);
 	glfwSetWindowSizeCallback(window, onResize);
 	checkError("glfw init");
@@ -224,6 +238,7 @@ void initComputation() {
 
 void setupComputation() {
 	glUseProgram(computeProgram);
+	view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
 	mvp = projection * view * model;
 	glUniformMatrix4fv(glGetUniformLocation(computeProgram, "mvp"), 1, GL_FALSE, &mvp[0][0]);
 	glUseProgram(0);
@@ -286,22 +301,79 @@ void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
 			case 'q': case 'Q':	case GLFW_KEY_ESCAPE: {
 				exit(EXIT_SUCCESS);
 			}
+			case GLFW_KEY_UP: {
+				cameraPosition += vec3(0, 1, 0);
+				cameraFocus += vec3(0, 1, 0);
+				setupComputation();
+				break;
+			}
+			case GLFW_KEY_DOWN: {
+				cameraPosition += vec3(0, -1, 0);
+				cameraFocus += vec3(0, -1, 0);
+				setupComputation();
+				break;
+			}
+			case GLFW_KEY_LEFT: {
+				cameraPosition += vec3(-1, 0, 0);
+				cameraFocus += vec3(-1, 0, 0);
+				setupComputation();
+				break;
+			}
+			case GLFW_KEY_RIGHT: {
+				cameraPosition += vec3(1, 0, 0);
+				cameraFocus += vec3(1, 0, 0);
+				setupComputation();
+				break;
+			}
+
 		}
 	}
 }
 
 void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
-	// let the camera handle some specific mouse events (similar to maya)
-	//camera->HandleMouseEvent(window, button, action, mods);
+	if (action == GLFW_RELEASE) {
+		mouseStatus = MouseStatus::inActive;
+	} else {
+		double xpos, ypos;
+		glfwGetCursorPos(window, &xpos, &ypos);
+		mousePosition = vec2(xpos, ypos);
+		lastCameraPosition = cameraPosition;
+
+		switch (button) {
+			case GLFW_MOUSE_BUTTON_LEFT: {
+				mouseStatus = MouseStatus::rotate;
+				break;
+			}
+			case GLFW_MOUSE_BUTTON_MIDDLE: {
+				mouseStatus = MouseStatus::translate;
+				break;
+			}
+			case GLFW_MOUSE_BUTTON_RIGHT: {
+				mouseStatus = MouseStatus::zoom;
+				break;
+			}
+		}
+	}
 }
 
 void onCursorPos(GLFWwindow* window, double xpos, double ypos) {
-	// let the camera handle some mouse motions if the camera is to be moved
-	//camera->HandleMouseMotion(window, xpos, ypos);
+	switch (mouseStatus) {
+		case MouseStatus::rotate: {
+			break;
+		}
+		case MouseStatus::translate: {
+			break;
+		}
+		case MouseStatus::zoom:{
+			cout << format("cameraosition: (%1%, %2%, %3%), lastCameraPosition: (%4%, %5%, %6%)") % cameraPosition.x % cameraPosition.y % cameraPosition.z % lastCameraPosition.x % lastCameraPosition.y % lastCameraPosition.z << endl;
+			cameraPosition = lastCameraPosition + normalize(cameraFocus - cameraPosition) * length(vec2(xpos, ypos) - mousePosition);
+			setupComputation();
+			break;
+		}
+	}
 }
 
 void onScroll(GLFWwindow* window, double xoffset, double yoffset) {
-	cout << format("X: %1%, Y: %2%") % xoffset % yoffset << endl;
 	if (yoffset > 0) {
 		model *= 1.5;
 	} else {
