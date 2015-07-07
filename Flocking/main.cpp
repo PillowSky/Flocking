@@ -38,12 +38,16 @@ int texSize = 64;
 int numParticles = texSize * texSize;
 
 bool showGrid = false;
-float pointSize = 3.0;
-float cohesion = 1000.0;
-float alignment = 80.0;
-float neighborRadius = 1.0;
-float collisionRadius = 0.1;
-float timeStep = 0.01;
+float pointSize = 2.0f;
+float cohesion = 1000.0f;
+float alignment = 80.0f;
+float neighborRadius = 1.0f;
+float collisionRadius = 0.1f;
+float timeStep = 0.01f;
+
+GLuint computeProgram, displayProgram;
+GLuint positionTex, velocityTex, colorTex;
+GLuint frameBuffer, positionVertexBuffer, colorVertexBuffer;
 
 mat4 projection = perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
 vec3 cameraPosition = vec3(1, 1, 1);
@@ -52,10 +56,6 @@ vec3 cameraHeadup = vec3(0, 1, 0);
 mat4 view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
 mat4 model = mat4(1.0f);
 mat4 mvp = projection * view * model;
-
-GLuint frameBuffer, positionVertexBuffer, colorVertexBuffer;
-GLuint computeProgram, displayProgram;
-GLuint positionTex, velocityTex, colorTex;
 
 MouseStatus mouseStatus;
 vec2 mousePosition;
@@ -107,19 +107,13 @@ int main(int argc, char* argv[]) {
 
 	// init texture, computation, display
 	initTexture();
-	checkError("initTexture");
 	initComputation();
-	checkError("initComputation");
 	initDisplay();
-	checkError("initDisplay");
 
 	// setup texture, computation, display
 	setupTexture();
-	checkError("setupTexture");
 	setupComputation();
-	checkError("setupComputation");
 	setupDisplay();
-	checkError("setupDisplay");
 
 	// vertex used for draw
 	GLuint vertexArray;
@@ -136,7 +130,6 @@ int main(int argc, char* argv[]) {
 	glGenBuffers(1, &vertexBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(3);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// variable used in draw loop
@@ -144,6 +137,10 @@ int main(int argc, char* argv[]) {
 	double nowTime;
 	char fpsTitle[32];
 	GLenum drawBuffer[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+
+	// status used in loop
+	glPointSize(pointSize);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
 	// draw loop
 	do {
@@ -160,22 +157,13 @@ int main(int argc, char* argv[]) {
 		checkError("compute");
 
 		// retrive
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, positionTex);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, velocityTex);
-		glActiveTexture(GL_TEXTURE2);
-		glBindTexture(GL_TEXTURE_2D, colorTex);
-
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, positionVertexBuffer);
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 		glReadPixels(0, 0, texSize, texSize, GL_RGBA, GL_FLOAT, NULL);
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, colorVertexBuffer);
 		glReadBuffer(GL_COLOR_ATTACHMENT2);
 		glReadPixels(0, 0, texSize, texSize, GL_RGBA, GL_FLOAT, NULL);
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 		checkError("retrive");
 
 		// display
@@ -186,33 +174,25 @@ int main(int argc, char* argv[]) {
 		glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
 
 		glBindBuffer(GL_ARRAY_BUFFER, positionVertexBuffer);
-		GLfloat* positionData = (GLfloat*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
-		for (int i = 80; i < 90; i++) {
-			cout << i << ": Position(" << positionData[4 * i + 0] << ", " << positionData[4 * i + 1] << ", " << positionData[4 * i + 2] << ", " << positionData[4 * i + 3] << ")" << endl;
-		}
-		glUnmapBuffer(GL_ARRAY_BUFFER);
 		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
 		glEnableVertexAttribArray(0);
 
 		glBindBuffer(GL_ARRAY_BUFFER, colorVertexBuffer);
-		GLfloat* colorData = (GLfloat*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
-		for (int i = 80; i < 90; i++) {
-			cout << i << ": Color(" << colorData[4 * i + 0] << ", " << colorData[4 * i + 1] << ", " << colorData[4 * i + 2] << ", " << colorData[4 * i + 3] << ")" << endl;
-		}
-		glUnmapBuffer(GL_ARRAY_BUFFER);
 		glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
 		glEnableVertexAttribArray(2);
 
+		glEnable(GL_BLEND);
 		glUseProgram(displayProgram);
-		glPointSize(pointSize);
 		glDrawArrays(GL_POINTS, 0, numParticles);
+		glDisable(GL_BLEND);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		checkError("display");
 
-		// other update stuff
+		// window event
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 
+		// update fps
 		nowTime = glfwGetTime();
 		snprintf(fpsTitle, 32, "Flocking - FPS: %.2f", 1 / (nowTime - lastTime));
 		glfwSetWindowTitle(window, fpsTitle);
@@ -229,6 +209,39 @@ void initTexture() {
 	glGenFramebuffers(1, &frameBuffer);
 	glGenBuffers(1, &positionVertexBuffer);
 	glGenBuffers(1, &colorVertexBuffer);
+
+	checkError("initTexture");
+}
+
+void initComputation() {
+	const char* computeSrc[] = { readFileBytes("shader/compute.vert"), readFileBytes("shader/compute.frag") };
+	GLenum computeType[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
+	computeProgram = buildProgram(computeSrc, computeType, 2);
+
+	glUseProgram(computeProgram);
+	glUniform1f(glGetUniformLocation(computeProgram, "timeStep"), timeStep);
+	glUniform1i(glGetUniformLocation(computeProgram, "texSixe"), texSize);
+	glUniform1f(glGetUniformLocation(computeProgram, "cohesion"), cohesion);
+	glUniform1f(glGetUniformLocation(computeProgram, "alignment"), alignment);
+	glUniform1f(glGetUniformLocation(computeProgram, "neighborRadius"), neighborRadius);
+	glUniform1f(glGetUniformLocation(computeProgram, "collisionRadius"), collisionRadius);
+	glUseProgram(0);
+
+	delete[] computeSrc[0];
+	delete[] computeSrc[1];
+
+	checkError("initComputation");
+}
+
+void initDisplay() {
+	const char* displaySrc[] = { readFileBytes("shader/display.vert"), readFileBytes("shader/display.frag") };
+	GLenum displayType[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
+	displayProgram = buildProgram(displaySrc, displayType, 2);
+
+	delete[] displaySrc[0];
+	delete[] displaySrc[1];
+
+	checkError("initDisplay");
 }
 
 void setupTexture() {
@@ -236,9 +249,9 @@ void setupTexture() {
 
 	// init position data
 	for (int i = 0; i < numParticles; i++) {
-		texData[4 * i + 0] = (float(rand()) / RAND_MAX) * 2.0 - 1.0;
-		texData[4 * i + 1] = (float(rand()) / RAND_MAX) * 2.0 - 1.0;
-		texData[4 * i + 2] = (float(rand()) / RAND_MAX) * 2.0 - 1.0;
+		texData[4 * i + 0] = (float(rand()) / RAND_MAX) * 2.0f - 1.0f;
+		texData[4 * i + 1] = (float(rand()) / RAND_MAX) * 2.0f - 1.0f;
+		texData[4 * i + 2] = (float(rand()) / RAND_MAX) * 2.0f - 1.0f;
 		texData[4 * i + 3] = 1.0;
 	}
 	glActiveTexture(GL_TEXTURE0);
@@ -251,12 +264,12 @@ void setupTexture() {
 
 	// init velocity data
 	default_random_engine generator(rand());
-	normal_distribution<double> distribution(0.0, 2.8);
+	normal_distribution<float> distribution(0.0f, 2.8f);
 	for (int i = 0; i < numParticles; ++i) {
 		texData[i * 4 + 0] = distribution(generator);
 		texData[i * 4 + 1] = distribution(generator);
 		texData[i * 4 + 2] = distribution(generator);
-		texData[i * 4 + 3] = 0.0;
+		texData[i * 4 + 3] = 0.0f;
 	}
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, velocityTex);
@@ -268,10 +281,10 @@ void setupTexture() {
 
 	// init color data
 	for (int i = 0; i < numParticles; ++i) {
-		texData[i * 4 + 0] = (float(rand()) / RAND_MAX) * 0.1;
-		texData[i * 4 + 1] = (float(rand()) / RAND_MAX) * 0.1;
-		texData[i * 4 + 2] = (float(rand()) / RAND_MAX) * 0.1 + 0.5;
-		texData[i * 4 + 3] = 0.0;
+		texData[i * 4 + 0] = (float(rand()) / RAND_MAX) * 0.1f;
+		texData[i * 4 + 1] = (float(rand()) / RAND_MAX) * 0.1f;
+		texData[i * 4 + 2] = (float(rand()) / RAND_MAX) * 0.1f + 0.5f;
+		texData[i * 4 + 3] = 1.0f;
 	}
 	glGenTextures(1, &colorTex);
 	glActiveTexture(GL_TEXTURE2);
@@ -303,47 +316,22 @@ void setupTexture() {
 	// position vertex buffer
 	glBindBuffer(GL_ARRAY_BUFFER, positionVertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, numParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_COPY);
-	glEnableVertexAttribArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// color vertex buffer
 	glBindBuffer(GL_ARRAY_BUFFER, colorVertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, numParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_COPY);
-	glEnableVertexAttribArray(2);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
 
-void initComputation() {
-	const char* computeSrc[] = { readFileBytes("shader/compute.vert"), readFileBytes("shader/compute.frag") };
-	GLenum computeType[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
-	computeProgram = buildProgram(computeSrc, computeType, 2);
-	
-	glUseProgram(computeProgram);
-	glUniform1f(glGetUniformLocation(computeProgram, "timeStep"), timeStep);
-	glUniform1i(glGetUniformLocation(computeProgram, "texSixe"), texSize);
-	glUniform1f(glGetUniformLocation(computeProgram, "cohesion"), cohesion);
-	glUniform1f(glGetUniformLocation(computeProgram, "alignment"), alignment);
-	glUniform1f(glGetUniformLocation(computeProgram, "neighborRadius"), neighborRadius);
-	glUniform1f(glGetUniformLocation(computeProgram, "collisionRadius"), collisionRadius);
-	glUseProgram(0);
-
-	delete[] computeSrc[0];
-	delete[] computeSrc[1];
+	checkError("setupTexture");
 }
 
 void setupComputation() {
 	glUseProgram(computeProgram);
 	// fill in
 	glUseProgram(0);
-}
 
-void initDisplay() {
-	const char* displaySrc[] = { readFileBytes("shader/display.vert"), readFileBytes("shader/display.frag") };
-	GLenum displayType[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
-	displayProgram = buildProgram(displaySrc, displayType, 2);
-
-	delete[] displaySrc[0];
-	delete[] displaySrc[1];
+	checkError("setupComputation");
 }
 
 void setupDisplay() {
@@ -353,6 +341,8 @@ void setupDisplay() {
 	glUniformMatrix4fv(glGetUniformLocation(displayProgram, "mvp"), 1, GL_FALSE, &mvp[0][0]);
 	glUniform2i(glGetUniformLocation(displayProgram, "size"), windowWidth, windowHeight);
 	glUseProgram(0);
+
+	checkError("setupDisplay");
 }
 
 void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {

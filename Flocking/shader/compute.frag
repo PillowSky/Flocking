@@ -14,14 +14,13 @@ uniform float collisionRadius;
 
 layout(location = 0) out vec3 positionOut;
 layout(location = 1) out vec3 velocityOut;
-layout(location = 2) out vec3 colorOut;
+layout(location = 2) out vec4 colorOut;
 
 void main() {
 	vec2 index = vec2(gl_FragCoord.x / 64, gl_FragCoord.y / 64);
 	vec3 position = texture2D(positionTex, index).xyz;
 	vec3 velocity = texture2D(velocityTex, index).xyz;
-	vec3 color = texture2D(colorTex, index).xyz + vec3(0.001, 0.001, 0.001);
-	//vec3 color = index.xyy;
+	//vec4 color = texture2D(colorTex, index);
 
 	// update particle if visible
 	// Rule 1 : collision avoidance
@@ -81,6 +80,5 @@ void main() {
 	velocityOut = velocity;
 
 	// update color
-	colorOut = color;
-
+	//colorOut = color;
 }
