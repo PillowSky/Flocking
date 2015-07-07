@@ -220,21 +220,8 @@ void initComputation() {
 	GLenum computeType[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
 	computeProgram = buildProgram(computeSrc, computeType, 2);
 
-	glUseProgram(computeProgram);
-	glUniform1i(glGetUniformLocation(computeProgram, "positionTex"), 0);
-	glUniform1i(glGetUniformLocation(computeProgram, "velocityTex"), 1);
-	glUniform1i(glGetUniformLocation(computeProgram, "colorTex"), 2);
-	glUniform1f(glGetUniformLocation(computeProgram, "timeStep"), timeStep);
-	glUniform1i(glGetUniformLocation(computeProgram, "texSixe"), texSize);
-	glUniform1f(glGetUniformLocation(computeProgram, "cohesion"), cohesion);
-	glUniform1f(glGetUniformLocation(computeProgram, "alignment"), alignment);
-	glUniform1f(glGetUniformLocation(computeProgram, "neighborRadius"), neighborRadius);
-	glUniform1f(glGetUniformLocation(computeProgram, "collisionRadius"), collisionRadius);
-	glUseProgram(0);
-
 	delete[] computeSrc[0];
 	delete[] computeSrc[1];
-
 	checkError("initComputation");
 }
 
@@ -245,7 +232,6 @@ void initDisplay() {
 
 	delete[] displaySrc[0];
 	delete[] displaySrc[1];
-
 	checkError("initDisplay");
 }
 
@@ -327,7 +313,15 @@ void setupTexture() {
 
 void setupComputation() {
 	glUseProgram(computeProgram);
-	// fill in
+	glUniform1i(glGetUniformLocation(computeProgram, "positionTex"), 0);
+	glUniform1i(glGetUniformLocation(computeProgram, "velocityTex"), 1);
+	glUniform1i(glGetUniformLocation(computeProgram, "colorTex"), 2);
+	glUniform1f(glGetUniformLocation(computeProgram, "timeStep"), timeStep);
+	glUniform1i(glGetUniformLocation(computeProgram, "texSixe"), texSize);
+	glUniform1f(glGetUniformLocation(computeProgram, "cohesion"), cohesion);
+	glUniform1f(glGetUniformLocation(computeProgram, "alignment"), alignment);
+	glUniform1f(glGetUniformLocation(computeProgram, "neighborRadius"), neighborRadius);
+	glUniform1f(glGetUniformLocation(computeProgram, "collisionRadius"), collisionRadius);
 	glUseProgram(0);
 
 	checkError("setupComputation");
@@ -336,7 +330,6 @@ void setupComputation() {
 void setupDisplay() {
 	glUseProgram(displayProgram);
 	glUniformMatrix4fv(glGetUniformLocation(displayProgram, "mvp"), 1, GL_FALSE, &mvp[0][0]);
-	glUniform2i(glGetUniformLocation(displayProgram, "windowSize"), windowWidth, windowHeight);
 	glUseProgram(0);
 
 	checkError("setupDisplay");
@@ -401,12 +394,11 @@ void onCursorPos(GLFWwindow* window, double xpos, double ypos) {
 		}
 		case MouseStatus::zoom: {
 			vec2 move = (vec2(xpos, ypos) - lastMousePosition) * zoomSpeed;
-			if (move.x + move.y < 0) {
-				move = 1.0f / (move + 1.0f);
-			} else {
-				move += 1.0f;
+			float len = length(move) + 1.0f;
+			if ((move.x + move.y) < 0) {
+				len = 1.0f / len;
 			}
-			mvp = glm::scale(lastMVP, vec3(length(move)));
+			mvp = glm::scale(lastMVP, vec3(len));
 			break;
 		}
 	}
