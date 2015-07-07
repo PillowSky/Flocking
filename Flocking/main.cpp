@@ -48,10 +48,12 @@ GLuint computeProgram, displayProgram;
 GLuint positionTex, velocityTex, colorTex;
 GLuint frameBuffer, positionVertexBuffer, colorVertexBuffer;
 
+float rotateSpeed = 0.01f;
+float translateSpeed = 0.01f;
 float zoomSpeed = 0.01f;
 mat4 projection = perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
-vec3 cameraPosition = vec3(1, 1, 1);
-vec3 cameraFocus = vec3(0.5, 0.5, 0.5);
+vec3 cameraPosition = vec3(0, 0, 10);
+vec3 cameraFocus = vec3(0.0, 0.0, 0.0);
 vec3 cameraHeadup = vec3(0, 1, 0);
 mat4 view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
 mat4 model = mat4(1.0f);
@@ -60,6 +62,8 @@ mat4 mvp = projection * view * model;
 MouseStatus mouseStatus;
 vec2 lastMousePosition;
 vec3 lastCameraPosition;
+mat4 lastModel;
+mat4 lastView;
 
 void initTexture();
 void initComputation();
@@ -133,6 +137,7 @@ int main(int argc, char* argv[]) {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// variable used in draw loop
+	int count = 0;
 	double lastTime = glfwGetTime();
 	double nowTime;
 	char fpsTitle[32];
@@ -191,10 +196,13 @@ int main(int argc, char* argv[]) {
 		glfwPollEvents();
 
 		// update fps
-		nowTime = glfwGetTime();
-		snprintf(fpsTitle, 32, "Flocking - FPS: %.2f", 1 / (nowTime - lastTime));
-		glfwSetWindowTitle(window, fpsTitle);
-		lastTime = nowTime;
+		if (++count >= 60) {
+			nowTime = glfwGetTime();
+			snprintf(fpsTitle, 32, "Flocking - FPS: %.2f", count / (nowTime - lastTime));
+			glfwSetWindowTitle(window, fpsTitle);
+			lastTime = nowTime;
+			count = 0;
+		}
 	} while (!glfwWindowShouldClose(window));
 
 	return EXIT_SUCCESS;
@@ -331,7 +339,6 @@ void setupComputation() {
 
 void setupDisplay() {
 	glUseProgram(displayProgram);
-	view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
 	mvp = projection * view * model;
 	glUniformMatrix4fv(glGetUniformLocation(displayProgram, "mvp"), 1, GL_FALSE, &mvp[0][0]);
 	glUniform2i(glGetUniformLocation(displayProgram, "windowSize"), windowWidth, windowHeight);
@@ -396,6 +403,8 @@ void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
 		glfwGetCursorPos(window, &xpos, &ypos);
 		lastMousePosition = vec2(xpos, ypos);
 		lastCameraPosition = cameraPosition;
+		lastModel = model;
+		lastView = view;
 
 		switch (button) {
 			case GLFW_MOUSE_BUTTON_LEFT: {
@@ -415,22 +424,29 @@ void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
 }
 
 void onCursorPos(GLFWwindow* window, double xpos, double ypos) {
+	cout << format("cameraosition: (%1%, %2%, %3%), lastCameraPosition: (%4%, %5%, %6%)") % cameraPosition.x % cameraPosition.y % cameraPosition.z % lastCameraPosition.x % lastCameraPosition.y % lastCameraPosition.z << endl;
 	switch (mouseStatus) {
 		case MouseStatus::rotate: {
+			float xAngle = (xpos - lastMousePosition.x) * rotateSpeed;
+			float yAngle = (lastMousePosition.y - ypos) * rotateSpeed;
+			view = glm::rotate(lastView, xAngle, vec3(0, 1, 0));
+			view = glm::rotate(view, yAngle, vec3(1, 0, 0));
 			break;
 		}
 		case MouseStatus::translate: {
+			vec3 motion = vec3(xpos - lastMousePosition.x, lastMousePosition.y - ypos, 0) * translateSpeed;
+			model = glm::translate(lastModel, motion);
 			break;
 		}
-		case MouseStatus::zoom:{
-			cout << format("cameraosition: (%1%, %2%, %3%), lastCameraPosition: (%4%, %5%, %6%)") % cameraPosition.x % cameraPosition.y % cameraPosition.z % lastCameraPosition.x % lastCameraPosition.y % lastCameraPosition.z << endl;
+		case MouseStatus::zoom: {
 			vec2 motion = vec2(xpos, ypos) - lastMousePosition;
-			float direction = motion.x + motion.y > 0 ? 1 : -1;
+			float direction = motion.x + motion.y > 0 ? 1.0f : -1.0f;
 			cameraPosition = lastCameraPosition + normalize(cameraFocus - cameraPosition) * direction * length(motion) * zoomSpeed;
-			setupDisplay();
+			view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
 			break;
 		}
 	}
+	setupDisplay();
 }
 
 void onScroll(GLFWwindow* window, double xoffset, double yoffset) {
