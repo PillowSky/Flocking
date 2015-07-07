@@ -27,6 +27,7 @@ void main() {
 	vec3 c1 = vec3(0.0, 0.0, 0.0);
 	vec3 c2 = vec3(0.0, 0.0, 0.0);
 	vec3 c3 = vec3(0.0, 0.0, 0.0);
+	vec3 c4 = vec3(0.0, 0.0, 0.0);
 	int n = 0;
 
 	for (int i = 0; i < texSixe; i++) {
@@ -36,13 +37,15 @@ void main() {
 			if (coord != target) {
 				vec3 position_n = texture2D(positionTex, coord).xyz;
 				vec3 velocity_n = texture2D(velocityTex, coord).xyz;
+				float distance = length(position_n - position);
 
 				// Rule 1 : Collision avoidance
-				if (length(position_n - position) < collisionRadius) {
+				if (distance < collisionRadius) {
 					// Possible collision, avoid
 					c1 -= position_n - position;
 				}
-				if (length(position_n - position) < neighborRadius) {
+
+				if (distance < neighborRadius) {
 					// Rule 2 : cohesion, add up all position
 					c2 += position_n;
 					// Rule 3 : alignment, velocity
@@ -60,7 +63,6 @@ void main() {
 	c3 = (c3 - velocity) / alignment;
 
 	// Constrain to sphere
-	vec3 c4 = vec3(0.0, 0.0, 0.0);
 	if (length(position) > 1.5) {
 		c4 = position / -5.0;
 	}
