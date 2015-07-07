@@ -33,7 +33,7 @@ void main() {
 		for (int j = 0; j < texSixe; j++) {
 			vec2 coord = vec2(i, j);
 
-			if (coord != gl_FragCoord.xy) {
+			if (coord != target) {
 				vec3 position_n = texture2D(positionTex, coord).xyz;
 				vec3 velocity_n = texture2D(velocityTex, coord).xyz;
 

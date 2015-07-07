@@ -48,22 +48,18 @@ GLuint computeProgram, displayProgram;
 GLuint positionTex, velocityTex, colorTex;
 GLuint frameBuffer, positionVertexBuffer, colorVertexBuffer;
 
-float rotateSpeed = 0.01f;
-float translateSpeed = 0.01f;
-float zoomSpeed = 0.01f;
 mat4 projection = perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
-vec3 cameraPosition = vec3(0, 0, 10);
-vec3 cameraFocus = vec3(0.0, 0.0, 0.0);
-vec3 cameraHeadup = vec3(0, 1, 0);
-mat4 view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
+mat4 view = lookAt(vec3(0, 0, 5), vec3(0.0, 0.0, 0.0), vec3(0, 1, 0));
 mat4 model = mat4(1.0f);
 mat4 mvp = projection * view * model;
 
+float rotateSpeed = 0.01f;
+float translateSpeed = 0.01f;
+float zoomSpeed = 0.01f;
+
 MouseStatus mouseStatus;
 vec2 lastMousePosition;
-vec3 lastCameraPosition;
-mat4 lastModel;
-mat4 lastView;
+mat4 lastMVP;
 
 void initTexture();
 void initComputation();
@@ -339,7 +335,6 @@ void setupComputation() {
 
 void setupDisplay() {
 	glUseProgram(displayProgram);
-	mvp = projection * view * model;
 	glUniformMatrix4fv(glGetUniformLocation(displayProgram, "mvp"), 1, GL_FALSE, &mvp[0][0]);
 	glUniform2i(glGetUniformLocation(displayProgram, "windowSize"), windowWidth, windowHeight);
 	glUseProgram(0);
@@ -350,47 +345,18 @@ void setupDisplay() {
 void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
 		switch (key) {
-			case 'c': case 'C': {
-				setupComputation();
-				setupDisplay();
-				break;
-			}
 			case 'r': case 'R': {
 				setupTexture();
 				break;
 			}
 			case 'f': case 'F': {
-				//camera->SetCenterOfFocus(Vector3d(0, 10, 0));
+				mvp = projection * view * model;
+				setupDisplay();
 				break;
 			}
 			case 'q': case 'Q':	case GLFW_KEY_ESCAPE: {
 				exit(EXIT_SUCCESS);
 			}
-			case GLFW_KEY_UP: {
-				cameraPosition += vec3(0, 1, 0);
-				cameraFocus += vec3(0, 1, 0);
-				setupDisplay();
-				break;
-			}
-			case GLFW_KEY_DOWN: {
-				cameraPosition += vec3(0, -1, 0);
-				cameraFocus += vec3(0, -1, 0);
-				setupDisplay();
-				break;
-			}
-			case GLFW_KEY_LEFT: {
-				cameraPosition += vec3(-1, 0, 0);
-				cameraFocus += vec3(-1, 0, 0);
-				setupDisplay();
-				break;
-			}
-			case GLFW_KEY_RIGHT: {
-				cameraPosition += vec3(1, 0, 0);
-				cameraFocus += vec3(1, 0, 0);
-				setupDisplay();
-				break;
-			}
-
 		}
 	}
 }
@@ -402,9 +368,7 @@ void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
 		double xpos, ypos;
 		glfwGetCursorPos(window, &xpos, &ypos);
 		lastMousePosition = vec2(xpos, ypos);
-		lastCameraPosition = cameraPosition;
-		lastModel = model;
-		lastView = view;
+		lastMVP = mvp;
 
 		switch (button) {
 			case GLFW_MOUSE_BUTTON_LEFT: {
@@ -424,25 +388,25 @@ void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
 }
 
 void onCursorPos(GLFWwindow* window, double xpos, double ypos) {
-	cout << format("cameraosition: (%1%, %2%, %3%), lastCameraPosition: (%4%, %5%, %6%)") % cameraPosition.x % cameraPosition.y % cameraPosition.z % lastCameraPosition.x % lastCameraPosition.y % lastCameraPosition.z << endl;
 	switch (mouseStatus) {
 		case MouseStatus::rotate: {
-			float xAngle = (xpos - lastMousePosition.x) * rotateSpeed;
-			float yAngle = (lastMousePosition.y - ypos) * rotateSpeed;
-			view = glm::rotate(lastView, xAngle, vec3(0, 1, 0));
-			view = glm::rotate(view, yAngle, vec3(1, 0, 0));
+			vec2 move = (vec2(xpos, ypos) - lastMousePosition) * rotateSpeed;
+			mvp = glm::rotate(lastMVP, length(move), vec3(move.y, move.x, 0));
 			break;
 		}
 		case MouseStatus::translate: {
-			vec3 motion = vec3(xpos - lastMousePosition.x, lastMousePosition.y - ypos, 0) * translateSpeed;
-			model = glm::translate(lastModel, motion);
+			vec2 move = vec2(xpos - lastMousePosition.x, lastMousePosition.y - ypos) * translateSpeed;
+			mvp = glm::translate(lastMVP, vec3(move, 0));
 			break;
 		}
 		case MouseStatus::zoom: {
-			vec2 motion = vec2(xpos, ypos) - lastMousePosition;
-			float direction = motion.x + motion.y > 0 ? 1.0f : -1.0f;
-			cameraPosition = lastCameraPosition + normalize(cameraFocus - cameraPosition) * direction * length(motion) * zoomSpeed;
-			view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
+			vec2 move = (vec2(xpos, ypos) - lastMousePosition) * zoomSpeed;
+			if (move.x + move.y < 0) {
+				move = 1.0f / (move + 1.0f);
+			} else {
+				move += 1.0f;
+			}
+			mvp = glm::scale(lastMVP, vec3(length(move)));
 			break;
 		}
 	}
@@ -451,11 +415,11 @@ void onCursorPos(GLFWwindow* window, double xpos, double ypos) {
 
 void onScroll(GLFWwindow* window, double xoffset, double yoffset) {
 	if (yoffset > 0) {
-		model *= 1.5;
+		mvp = glm::scale(mvp, vec3(1.1f));
 	} else {
-		model /= 1.5;
+		mvp = glm::scale(mvp, vec3(0.9f));
 	}
-	setupComputation();
+	setupDisplay();
 }
 
 void onResize(GLFWwindow* window, int width, int height) {
