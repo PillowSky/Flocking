@@ -32,9 +32,9 @@ typedef enum {
 	zoom
 } MouseStatus;
 
-int windowWidth = 1024;
-int windowHeight = 768;
-int texSize = 64;
+int windowWidth = 800;
+int windowHeight = 600;
+int texSize = 80;
 int numParticles = texSize * texSize;
 
 float pointSize = 2.0f;
@@ -240,9 +240,9 @@ void setupTexture() {
 
 	// init position data
 	for (int i = 0; i < numParticles; i++) {
-		texData[4 * i + 0] = (float(rand()) / RAND_MAX) * 2.0f - 1.0f;
-		texData[4 * i + 1] = (float(rand()) / RAND_MAX) * 2.0f - 1.0f;
-		texData[4 * i + 2] = (float(rand()) / RAND_MAX) * 2.0f - 1.0f;
+		texData[4 * i + 0] = float(rand()) / RAND_MAX - 0.5f;
+		texData[4 * i + 1] = float(rand()) / RAND_MAX - 0.5f;
+		texData[4 * i + 2] = float(rand()) / RAND_MAX - 0.5f;
 		texData[4 * i + 3] = 1.0f;
 	}
 	glActiveTexture(GL_TEXTURE0);
@@ -253,7 +253,7 @@ void setupTexture() {
 
 	// init velocity data
 	default_random_engine generator(rand());
-	normal_distribution<float> distribution(0.0f, 2.8f);
+	normal_distribution<float> distribution(-2.0f, 2.0f);
 	for (int i = 0; i < numParticles; ++i) {
 		texData[i * 4 + 0] = distribution(generator);
 		texData[i * 4 + 1] = distribution(generator);
@@ -268,9 +268,9 @@ void setupTexture() {
 
 	// init color data
 	for (int i = 0; i < numParticles; ++i) {
-		texData[i * 4 + 0] = (float(rand()) / RAND_MAX) * 0.1f;
-		texData[i * 4 + 1] = (float(rand()) / RAND_MAX) * 0.1f;
-		texData[i * 4 + 2] = (float(rand()) / RAND_MAX) * 0.1f + 0.5f;
+		texData[i * 4 + 0] = (float(rand()) / RAND_MAX) * 0.15f;
+		texData[i * 4 + 1] = (float(rand()) / RAND_MAX) * 0.15f;
+		texData[i * 4 + 2] = (float(rand()) / RAND_MAX) * 0.25f + 0.5f;
 		texData[i * 4 + 3] = 1.0f;
 	}
 	glGenTextures(1, &colorTex);
