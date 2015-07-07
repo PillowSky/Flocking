@@ -48,6 +48,7 @@ GLuint computeProgram, displayProgram;
 GLuint positionTex, velocityTex, colorTex;
 GLuint frameBuffer, positionVertexBuffer, colorVertexBuffer;
 
+float zoomSpeed = 0.01f;
 mat4 projection = perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
 vec3 cameraPosition = vec3(1, 1, 1);
 vec3 cameraFocus = vec3(0.5, 0.5, 0.5);
@@ -57,7 +58,7 @@ mat4 model = mat4(1.0f);
 mat4 mvp = projection * view * model;
 
 MouseStatus mouseStatus;
-vec2 mousePosition;
+vec2 lastMousePosition;
 vec3 lastCameraPosition;
 
 void initTexture();
@@ -252,7 +253,7 @@ void setupTexture() {
 		texData[4 * i + 0] = (float(rand()) / RAND_MAX) * 2.0f - 1.0f;
 		texData[4 * i + 1] = (float(rand()) / RAND_MAX) * 2.0f - 1.0f;
 		texData[4 * i + 2] = (float(rand()) / RAND_MAX) * 2.0f - 1.0f;
-		texData[4 * i + 3] = 1.0;
+		texData[4 * i + 3] = 1.0f;
 	}
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, positionTex);
@@ -333,7 +334,7 @@ void setupDisplay() {
 	view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
 	mvp = projection * view * model;
 	glUniformMatrix4fv(glGetUniformLocation(displayProgram, "mvp"), 1, GL_FALSE, &mvp[0][0]);
-	glUniform2i(glGetUniformLocation(displayProgram, "size"), windowWidth, windowHeight);
+	glUniform2i(glGetUniformLocation(displayProgram, "windowSize"), windowWidth, windowHeight);
 	glUseProgram(0);
 
 	checkError("setupDisplay");
@@ -393,7 +394,7 @@ void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
 	} else {
 		double xpos, ypos;
 		glfwGetCursorPos(window, &xpos, &ypos);
-		mousePosition = vec2(xpos, ypos);
+		lastMousePosition = vec2(xpos, ypos);
 		lastCameraPosition = cameraPosition;
 
 		switch (button) {
@@ -423,7 +424,9 @@ void onCursorPos(GLFWwindow* window, double xpos, double ypos) {
 		}
 		case MouseStatus::zoom:{
 			cout << format("cameraosition: (%1%, %2%, %3%), lastCameraPosition: (%4%, %5%, %6%)") % cameraPosition.x % cameraPosition.y % cameraPosition.z % lastCameraPosition.x % lastCameraPosition.y % lastCameraPosition.z << endl;
-			cameraPosition = lastCameraPosition + normalize(cameraFocus - cameraPosition) * length(vec2(xpos, ypos) - mousePosition);
+			vec2 motion = vec2(xpos, ypos) - lastMousePosition;
+			float direction = motion.x + motion.y > 0 ? 1 : -1;
+			cameraPosition = lastCameraPosition + normalize(cameraFocus - cameraPosition) * direction * length(motion) * zoomSpeed;
 			setupDisplay();
 			break;
 		}

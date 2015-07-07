@@ -12,8 +12,8 @@ uniform float alignment;
 uniform float neighborRadius;
 uniform float collisionRadius;
 
-layout(location = 0) out vec3 positionOut;
-layout(location = 1) out vec3 velocityOut;
+layout(location = 0) out vec4 positionOut;
+layout(location = 1) out vec4 velocityOut;
 layout(location = 2) out vec4 colorOut;
 
 void main() {
@@ -74,10 +74,10 @@ void main() {
 	position.xyz += velocity.xyz * timeStep;
 
 	// update position
-	positionOut = position;
+	positionOut = vec4(position.xyz, 1);
 
 	// update velocity and lifetime
-	velocityOut = velocity;
+	velocityOut = vec4(velocity.xyz, 0);
 
 	// update color
 	//colorOut = color;
