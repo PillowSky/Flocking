@@ -125,6 +125,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Makefile" />
     <None Include="shader\compute.frag" />
     <None Include="shader\display.frag" />
     <None Include="shader\display.vert" />

@@ -37,7 +37,6 @@ int windowHeight = 768;
 int texSize = 64;
 int numParticles = texSize * texSize;
 
-bool showGrid = false;
 float pointSize = 2.0f;
 float cohesion = 1000.0f;
 float alignment = 80.0f;
@@ -80,8 +79,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	glfwWindowHint(GLFW_SAMPLES, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	GLFWwindow* window = glfwCreateWindow(windowWidth, windowHeight, "Flocking", NULL, NULL);
@@ -147,14 +146,14 @@ int main(int argc, char* argv[]) {
 		// compute
 		glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
 		glViewport(0, 0, texSize, texSize);
+		glUseProgram(computeProgram);
 		glDrawBuffers(3, drawBuffer);
 		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
 		glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 		glEnableVertexAttribArray(3);
-		glUseProgram(computeProgram);
+
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, sizeof(vertexData));
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		checkError("compute");
 
 		// retrive
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, positionVertexBuffer);
@@ -164,11 +163,11 @@ int main(int argc, char* argv[]) {
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, colorVertexBuffer);
 		glReadBuffer(GL_COLOR_ATTACHMENT2);
 		glReadPixels(0, 0, texSize, texSize, GL_RGBA, GL_FLOAT, NULL);
-		checkError("retrive");
 
 		// display
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, windowWidth, windowHeight);
+		glUseProgram(displayProgram);
 		glDrawBuffer(GL_BACK);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
@@ -182,11 +181,9 @@ int main(int argc, char* argv[]) {
 		glEnableVertexAttribArray(2);
 
 		glEnable(GL_BLEND);
-		glUseProgram(displayProgram);
 		glDrawArrays(GL_POINTS, 0, numParticles);
 		glDisable(GL_BLEND);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		checkError("display");
 
 		// window event
 		glfwSwapBuffers(window);
@@ -219,6 +216,9 @@ void initComputation() {
 	computeProgram = buildProgram(computeSrc, computeType, 2);
 
 	glUseProgram(computeProgram);
+	glUniform1i(glGetUniformLocation(computeProgram, "positionTex"), 0);
+	glUniform1i(glGetUniformLocation(computeProgram, "velocityTex"), 1);
+	glUniform1i(glGetUniformLocation(computeProgram, "colorTex"), 2);
 	glUniform1f(glGetUniformLocation(computeProgram, "timeStep"), timeStep);
 	glUniform1i(glGetUniformLocation(computeProgram, "texSixe"), texSize);
 	glUniform1f(glGetUniformLocation(computeProgram, "cohesion"), cohesion);
@@ -258,8 +258,6 @@ void setupTexture() {
 	glBindTexture(GL_TEXTURE_2D, positionTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, texSize, texSize, 0, GL_RGBA, GL_FLOAT, texData);
 
 	// init velocity data
@@ -275,8 +273,6 @@ void setupTexture() {
 	glBindTexture(GL_TEXTURE_2D, velocityTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, texSize, texSize, 0, GL_RGBA, GL_FLOAT, texData);
 
 	// init color data
@@ -291,8 +287,6 @@ void setupTexture() {
 	glBindTexture(GL_TEXTURE_2D, colorTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, texSize, texSize, 0, GL_RGBA, GL_FLOAT, texData);
 
 	delete[] texData;
@@ -359,9 +353,6 @@ void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
 			}
 			case 'f': case 'F': {
 				//camera->SetCenterOfFocus(Vector3d(0, 10, 0));
-				break;
-			} case 'g': case 'G': {
-				showGrid = !showGrid;
 				break;
 			}
 			case 'q': case 'Q':	case GLFW_KEY_ESCAPE: {

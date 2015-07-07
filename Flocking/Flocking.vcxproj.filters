@@ -40,5 +40,8 @@
     <None Include="shader\compute.vert">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="Makefile">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

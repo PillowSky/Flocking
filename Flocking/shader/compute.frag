@@ -1,11 +1,11 @@
-#version 440 core
+#version 330 core
 
-layout(binding = 0) uniform sampler2D positionTex;
-layout(binding = 1) uniform sampler2D velocityTex;
-layout(binding = 2) uniform sampler2D colorTex;
+uniform sampler2D positionTex;
+uniform sampler2D velocityTex;
+uniform sampler2D colorTex;
 
-uniform float timeStep;
 uniform int texSixe;
+uniform float timeStep;
 
 uniform float cohesion;
 uniform float alignment;
@@ -17,10 +17,10 @@ layout(location = 1) out vec3 velocityOut;
 layout(location = 2) out vec4 colorOut;
 
 void main() {
-	vec2 index = vec2(gl_FragCoord.x / 64, gl_FragCoord.y / 64);
-	vec3 position = texture2D(positionTex, index).xyz;
-	vec3 velocity = texture2D(velocityTex, index).xyz;
-	//vec4 color = texture2D(colorTex, index);
+	vec2 target = gl_FragCoord.xy / texSixe;
+	vec3 position = texture(positionTex, target).xyz;
+	vec3 velocity = texture(velocityTex, target).xyz;
+	//vec4 color = texture(colorTex, target);
 
 	// update particle if visible
 	// Rule 1 : collision avoidance
