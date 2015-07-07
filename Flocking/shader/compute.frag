@@ -17,9 +17,11 @@ layout(location = 1) out vec3 velocityOut;
 layout(location = 2) out vec3 colorOut;
 
 void main() {
-	vec3 position = texture2D(positionTex, gl_FragCoord.xy).xyz;
-	vec3 velocity = texture2D(velocityTex, gl_FragCoord.xy).xyz;
-	vec3 color = texture2D(colorTex, gl_FragCoord.xy).xyz;
+	vec2 index = vec2(gl_FragCoord.x / 64, gl_FragCoord.y / 64);
+	vec3 position = texture2D(positionTex, index).xyz;
+	vec3 velocity = texture2D(velocityTex, index).xyz;
+	vec3 color = texture2D(colorTex, index).xyz + vec3(0.001, 0.001, 0.001);
+	//vec3 color = index.xyy;
 
 	// update particle if visible
 	// Rule 1 : collision avoidance
@@ -79,6 +81,6 @@ void main() {
 	velocityOut = velocity;
 
 	// update color
-	//colorOut = color;
+	colorOut = color;
 
 }

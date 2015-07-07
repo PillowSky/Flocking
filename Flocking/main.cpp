@@ -38,7 +38,7 @@ int texSize = 64;
 int numParticles = texSize * texSize;
 
 bool showGrid = false;
-float pointSize = 2.0;
+float pointSize = 3.0;
 float cohesion = 1000.0;
 float alignment = 80.0;
 float neighborRadius = 1.0;
@@ -46,8 +46,8 @@ float collisionRadius = 0.1;
 float timeStep = 0.01;
 
 mat4 projection = perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
-vec3 cameraPosition = vec3(10, 3, 3);
-vec3 cameraFocus = vec3(0, 0, 0);
+vec3 cameraPosition = vec3(1, 1, 1);
+vec3 cameraFocus = vec3(0.5, 0.5, 0.5);
 vec3 cameraHeadup = vec3(0, 1, 0);
 mat4 view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
 mat4 model = mat4(1.0f);
@@ -157,6 +157,7 @@ int main(int argc, char* argv[]) {
 		glUseProgram(computeProgram);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, sizeof(vertexData));
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		checkError("compute");
 
 		// retrive
 		glActiveTexture(GL_TEXTURE0);
@@ -175,31 +176,38 @@ int main(int argc, char* argv[]) {
 		glReadBuffer(GL_COLOR_ATTACHMENT2);
 		glReadPixels(0, 0, texSize, texSize, GL_RGBA, GL_FLOAT, NULL);
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+		checkError("retrive");
 
 		// display
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, windowWidth, windowHeight);
+		glDrawBuffer(GL_BACK);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-
-		glDisable(GL_DEPTH_TEST);
-		glDepthMask(GL_FALSE);
-		glEnable(GL_BLEND);
+		glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
 
 		glBindBuffer(GL_ARRAY_BUFFER, positionVertexBuffer);
+		GLfloat* positionData = (GLfloat*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+		for (int i = 80; i < 90; i++) {
+			cout << i << ": Position(" << positionData[4 * i + 0] << ", " << positionData[4 * i + 1] << ", " << positionData[4 * i + 2] << ", " << positionData[4 * i + 3] << ")" << endl;
+		}
+		glUnmapBuffer(GL_ARRAY_BUFFER);
 		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
 		glEnableVertexAttribArray(0);
+
 		glBindBuffer(GL_ARRAY_BUFFER, colorVertexBuffer);
+		GLfloat* colorData = (GLfloat*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+		for (int i = 80; i < 90; i++) {
+			cout << i << ": Color(" << colorData[4 * i + 0] << ", " << colorData[4 * i + 1] << ", " << colorData[4 * i + 2] << ", " << colorData[4 * i + 3] << ")" << endl;
+		}
+		glUnmapBuffer(GL_ARRAY_BUFFER);
 		glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
 		glEnableVertexAttribArray(2);
 
 		glUseProgram(displayProgram);
+		glPointSize(pointSize);
 		glDrawArrays(GL_POINTS, 0, numParticles);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		glEnable(GL_DEPTH_TEST);
-		glDepthMask(GL_TRUE);
-		glDisable(GL_BLEND);
+		checkError("display");
 
 		// other update stuff
 		glfwSwapBuffers(window);
@@ -372,25 +380,25 @@ void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
 			case GLFW_KEY_UP: {
 				cameraPosition += vec3(0, 1, 0);
 				cameraFocus += vec3(0, 1, 0);
-				setupComputation();
+				setupDisplay();
 				break;
 			}
 			case GLFW_KEY_DOWN: {
 				cameraPosition += vec3(0, -1, 0);
 				cameraFocus += vec3(0, -1, 0);
-				setupComputation();
+				setupDisplay();
 				break;
 			}
 			case GLFW_KEY_LEFT: {
 				cameraPosition += vec3(-1, 0, 0);
 				cameraFocus += vec3(-1, 0, 0);
-				setupComputation();
+				setupDisplay();
 				break;
 			}
 			case GLFW_KEY_RIGHT: {
 				cameraPosition += vec3(1, 0, 0);
 				cameraFocus += vec3(1, 0, 0);
-				setupComputation();
+				setupDisplay();
 				break;
 			}
 
@@ -435,7 +443,7 @@ void onCursorPos(GLFWwindow* window, double xpos, double ypos) {
 		case MouseStatus::zoom:{
 			cout << format("cameraosition: (%1%, %2%, %3%), lastCameraPosition: (%4%, %5%, %6%)") % cameraPosition.x % cameraPosition.y % cameraPosition.z % lastCameraPosition.x % lastCameraPosition.y % lastCameraPosition.z << endl;
 			cameraPosition = lastCameraPosition + normalize(cameraFocus - cameraPosition) * length(vec2(xpos, ypos) - mousePosition);
-			setupComputation();
+			setupDisplay();
 			break;
 		}
 	}
