@@ -1,9 +1,8 @@
 #version 440 core
 
-layout(rgba32f, binding = 0) uniform image2D positionTex;
-layout(rgba32f, binding = 1) uniform image2D velocityTex;
-layout(rgba32f, binding = 2) uniform image2D colorTex;
-layout(rgba32f, binding = 3) uniform image2D displayTex;
+layout(binding = 0) uniform sampler2D positionTex;
+layout(binding = 1) uniform sampler2D velocityTex;
+layout(binding = 2) uniform sampler2D colorTex;
 
 uniform float timeStep;
 uniform int texSixe;
@@ -13,14 +12,14 @@ uniform float alignment;
 uniform float neighborRadius;
 uniform float collisionRadius;
 
-uniform mat4 mvp;
-
-layout(local_size_x = 16, local_size_y = 16) in;
+layout(location = 0) out vec3 positionOut;
+layout(location = 1) out vec3 velocityOut;
+layout(location = 2) out vec3 colorOut;
 
 void main() {
-	vec3 position = imageLoad(positionTex, ivec2(gl_GlobalInvocationID.xy)).xyz;
-	vec3 velocity = imageLoad(velocityTex, ivec2(gl_GlobalInvocationID.xy)).xyz;
-	vec4 color    = imageLoad(colorTex, ivec2(gl_GlobalInvocationID.xy));
+	vec3 position = texture2D(positionTex, gl_FragCoord.xy).xyz;
+	vec3 velocity = texture2D(velocityTex, gl_FragCoord.xy).xyz;
+	vec3 color = texture2D(colorTex, gl_FragCoord.xy).xyz;
 
 	// update particle if visible
 	// Rule 1 : collision avoidance
@@ -31,11 +30,11 @@ void main() {
 
 	for (int i = 0; i < texSixe; i++) {
 		for (int j = 0; j < texSixe; j++) {
-			ivec2 coord = ivec2(i, j);
+			vec2 coord = vec2(i, j);
 
-			if (coord != ivec2(gl_GlobalInvocationID.xy)) {
-				vec3 position_n = imageLoad(positionTex, coord).xyz;
-				vec3 velocity_n = imageLoad(velocityTex, coord).xyz;
+			if (coord != gl_FragCoord.xy) {
+				vec3 position_n = texture2D(positionTex, coord).xyz;
+				vec3 velocity_n = texture2D(velocityTex, coord).xyz;
 
 				// Rule 1 : Collision avoidance
 				if (length(position_n - position) < collisionRadius) { // Possible collision, avoid
@@ -52,10 +51,10 @@ void main() {
 		}
 	}
 
-	c2 = c2 / (N + 1);
+	c2 /= (N - 1);
 	c2 = (c2 - position) / cohesion;
 
-	c3 = c3 / (N + 1);
+	c3 /= (N - 1);
 	c3 = (c3 - velocity) / alignment;
 
 	// Constrain to sphere
@@ -74,14 +73,12 @@ void main() {
 	position.xyz += velocity.xyz * timeStep;
 
 	// update position
-	imageStore(positionTex, ivec2(gl_GlobalInvocationID.xy), vec4(position.xyz, 1.0));
+	positionOut = position;
 
 	// update velocity and lifetime
-	imageStore(velocityTex, ivec2(gl_GlobalInvocationID.xy), vec4(velocity.xyz, 0));
+	velocityOut = velocity;
 
 	// update color
-	imageStore(colorTex, ivec2(gl_GlobalInvocationID.xy), vec4(color.xyz, 1.0));
+	//colorOut = color;
 
-	vec4 screen = mvp * vec4(position.xyz, 1.0f);
-	imageStore(displayTex, ivec2(screen.x * 1024, screen.y * 768), vec4(color.xyz, 1.0));
 }

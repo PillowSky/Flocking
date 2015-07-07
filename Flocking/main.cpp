@@ -53,8 +53,9 @@ mat4 view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
 mat4 model = mat4(1.0f);
 mat4 mvp = projection * view * model;
 
+GLuint frameBuffer, positionVertexBuffer, colorVertexBuffer;
 GLuint computeProgram, displayProgram;
-GLuint velocityTex, colorTex, positionTex, displayTex;
+GLuint positionTex, velocityTex, colorTex;
 
 MouseStatus mouseStatus;
 vec2 mousePosition;
@@ -120,23 +121,90 @@ int main(int argc, char* argv[]) {
 	setupDisplay();
 	checkError("setupDisplay");
 
-	// draw loop
+	// vertex used for draw
+	GLuint vertexArray;
+	glGenVertexArrays(1, &vertexArray);
+	glBindVertexArray(vertexArray);
+	const static GLfloat vertexData[] = {
+		-1.0f, -1.0f,
+		-1.0f,  1.0f,
+		 1.0f, -1.0f,
+		 1.0f,  1.0f
+	};
+
+	GLuint vertexBuffer;
+	glGenBuffers(1, &vertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(3);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// variable used in draw loop
 	double lastTime = glfwGetTime();
 	double nowTime;
 	char fpsTitle[32];
-	do {
-		glClearTexImage(displayTex, 0, GL_RGBA, GL_FLOAT, NULL);
+	GLenum drawBuffer[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
 
+	// draw loop
+	do {
+		// compute
+		glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+		glViewport(0, 0, texSize, texSize);
+		glDrawBuffers(3, drawBuffer);
+		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+		glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		glEnableVertexAttribArray(3);
 		glUseProgram(computeProgram);
-		glDispatchCompute(texSize / 16, texSize / 16, 1);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, sizeof(vertexData));
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// retrive
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, positionTex);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, velocityTex);
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, colorTex);
+
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, positionVertexBuffer);
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		glReadPixels(0, 0, texSize, texSize, GL_RGBA, GL_FLOAT, NULL);
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, colorVertexBuffer);
+		glReadBuffer(GL_COLOR_ATTACHMENT2);
+		glReadPixels(0, 0, texSize, texSize, GL_RGBA, GL_FLOAT, NULL);
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+		// display
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, windowWidth, windowHeight);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+
+		glDisable(GL_DEPTH_TEST);
+		glDepthMask(GL_FALSE);
+		glEnable(GL_BLEND);
+
+		glBindBuffer(GL_ARRAY_BUFFER, positionVertexBuffer);
+		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		glEnableVertexAttribArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, colorVertexBuffer);
+		glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		glEnableVertexAttribArray(2);
 
 		glUseProgram(displayProgram);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, sizeof(GLfloat) * 8);
+		glDrawArrays(GL_POINTS, 0, numParticles);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+		glEnable(GL_DEPTH_TEST);
+		glDepthMask(GL_TRUE);
+		glDisable(GL_BLEND);
+
+		// other update stuff
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 
-		// other stuff
 		nowTime = glfwGetTime();
 		snprintf(fpsTitle, 32, "Flocking - FPS: %.2f", 1 / (nowTime - lastTime));
 		glfwSetWindowTitle(window, fpsTitle);
@@ -149,7 +217,10 @@ int main(int argc, char* argv[]) {
 void initTexture() {
 	glGenTextures(1, &positionTex);
 	glGenTextures(1, &velocityTex);
-	glGenTextures(1, &displayTex);
+	glGenTextures(1, &colorTex);
+	glGenFramebuffers(1, &frameBuffer);
+	glGenBuffers(1, &positionVertexBuffer);
+	glGenBuffers(1, &colorVertexBuffer);
 }
 
 void setupTexture() {
@@ -169,7 +240,6 @@ void setupTexture() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, texSize, texSize, 0, GL_RGBA, GL_FLOAT, texData);
-	glBindImageTexture(0, positionTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
 	// init velocity data
 	default_random_engine generator(rand());
@@ -187,14 +257,13 @@ void setupTexture() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, texSize, texSize, 0, GL_RGBA, GL_FLOAT, texData);
-	glBindImageTexture(1, velocityTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
 	// init color data
 	for (int i = 0; i < numParticles; ++i) {
 		texData[i * 4 + 0] = (float(rand()) / RAND_MAX) * 0.1;
 		texData[i * 4 + 1] = (float(rand()) / RAND_MAX) * 0.1;
 		texData[i * 4 + 2] = (float(rand()) / RAND_MAX) * 0.1 + 0.5;
-		texData[i * 4 + 3] = 0.0; // Initially invisible
+		texData[i * 4 + 3] = 0.0;
 	}
 	glGenTextures(1, &colorTex);
 	glActiveTexture(GL_TEXTURE2);
@@ -204,25 +273,42 @@ void setupTexture() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, texSize, texSize, 0, GL_RGBA, GL_FLOAT, texData);
-	glBindImageTexture(2, colorTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
-
-	// init display data
-	glActiveTexture(GL_TEXTURE3);
-	glBindTexture(GL_TEXTURE_2D, displayTex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, windowWidth, windowHeight, 0, GL_RGBA, GL_FLOAT, NULL);
-	glBindImageTexture(3, displayTex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
 
 	delete[] texData;
+
+	// init frame buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+	glBindTexture(GL_TEXTURE_2D, positionTex);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, positionTex, 0);
+
+	glBindTexture(GL_TEXTURE_2D, velocityTex);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, velocityTex, 0);
+
+	glBindTexture(GL_TEXTURE_2D, colorTex);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, colorTex, 0);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		cerr << "ERROR - Incomplete FrameBuffer" << endl;
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	// position vertex buffer
+	glBindBuffer(GL_ARRAY_BUFFER, positionVertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, numParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_COPY);
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// color vertex buffer
+	glBindBuffer(GL_ARRAY_BUFFER, colorVertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, numParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_COPY);
+	glEnableVertexAttribArray(2);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void initComputation() {
-	const char* computeSrc = readFileBytes("shader/flocking.comp");
-	GLenum computeType[] = { GL_COMPUTE_SHADER };
-	computeProgram = buildProgram(&computeSrc, computeType, 1);
+	const char* computeSrc[] = { readFileBytes("shader/compute.vert"), readFileBytes("shader/compute.frag") };
+	GLenum computeType[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
+	computeProgram = buildProgram(computeSrc, computeType, 2);
 	
 	glUseProgram(computeProgram);
 	glUniform1f(glGetUniformLocation(computeProgram, "timeStep"), timeStep);
@@ -233,14 +319,13 @@ void initComputation() {
 	glUniform1f(glGetUniformLocation(computeProgram, "collisionRadius"), collisionRadius);
 	glUseProgram(0);
 
-	delete[] computeSrc;
+	delete[] computeSrc[0];
+	delete[] computeSrc[1];
 }
 
 void setupComputation() {
 	glUseProgram(computeProgram);
-	view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
-	mvp = projection * view * model;
-	glUniformMatrix4fv(glGetUniformLocation(computeProgram, "mvp"), 1, GL_FALSE, &mvp[0][0]);
+	// fill in
 	glUseProgram(0);
 }
 
@@ -249,32 +334,15 @@ void initDisplay() {
 	GLenum displayType[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
 	displayProgram = buildProgram(displaySrc, displayType, 2);
 
-	GLuint vertexArray;
-	glGenVertexArrays(1, &vertexArray);
-	glBindVertexArray(vertexArray);
-	const static GLfloat vertexData[] = {
-		-1.0f, -1.0f,
-		-1.0f, 1.0f,
-		1.0f, -1.0f,
-		1.0f, 1.0f
-	};
-
-	GLuint vertexBuffer;
-	glGenBuffers(1, &vertexBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-	glEnableVertexAttribArray(0);
-
-	glUseProgram(0);
-
 	delete[] displaySrc[0];
 	delete[] displaySrc[1];
 }
 
 void setupDisplay() {
 	glUseProgram(displayProgram);
+	view = lookAt(cameraPosition, cameraFocus, cameraHeadup);
+	mvp = projection * view * model;
+	glUniformMatrix4fv(glGetUniformLocation(displayProgram, "mvp"), 1, GL_FALSE, &mvp[0][0]);
 	glUniform2i(glGetUniformLocation(displayProgram, "size"), windowWidth, windowHeight);
 	glUseProgram(0);
 }

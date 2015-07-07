@@ -28,13 +28,16 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shader\flocking.comp">
-      <Filter>Resource Files</Filter>
-    </None>
     <None Include="shader\display.frag">
       <Filter>Resource Files</Filter>
     </None>
     <None Include="shader\display.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shader\compute.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shader\compute.vert">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

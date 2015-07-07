@@ -125,9 +125,10 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="shader\flocking.comp" />
+    <None Include="shader\compute.frag" />
     <None Include="shader\display.frag" />
     <None Include="shader\display.vert" />
+    <None Include="shader\compute.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

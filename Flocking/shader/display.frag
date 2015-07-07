@@ -1,10 +1,9 @@
 #version 440 core
 
+in  vec4 pixel;
 out vec4 color;
 
-layout(binding = 3) uniform sampler2D displayTex;
-uniform ivec2 size;
-
 void main() {
-	color = texture(displayTex, gl_FragCoord.xy / size);
+	//color = pixel;
+	color = vec4(1, 1, 1, 1);
 }
