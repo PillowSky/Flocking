@@ -1,4 +1,12 @@
-#define _CRT_SECURE_NO_WARNINGS
+/*
+* Util
+*
+* Util prepared for modern opengl
+*
+* 2015 Yuzo(Huang Yuzhong)
+*
+*/
+
 #include <iostream>
 #include <boost/format.hpp>
 #include "util.hpp"
@@ -7,9 +15,9 @@ using namespace std;
 using namespace boost;
 
 const char* readFileBytes(const char* path) {
-	FILE* fp = fopen(path, "rb");
-	if (!fp) {
-		throw runtime_error((format("File not found: %1%") % path).str());
+	FILE* fp;
+	if (fopen_s(&fp, path, "rb") != 0) {
+		throw runtime_error((format("Failed to open: %1%") % path).str());
 	}
 
 	fseek(fp, 0, SEEK_END);
