@@ -19,11 +19,14 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include "common/util.hpp"
 
 using namespace std;
 using namespace boost;
 using namespace glm;
+using namespace cv;
 
 typedef enum {
 	inActive,
@@ -46,7 +49,7 @@ float timeStep = 0.01f;
 
 GLuint computeProgram, displayProgram;
 GLuint positionTex, velocityTex, colorTex;
-GLuint frameBuffer, positionVertexBuffer, colorVertexBuffer;
+GLuint frameBuffer, positionVertexBuffer, colorVertexBuffer, resultFrameBuffer, resultTex, resultVertexBuffer;
 
 mat4 projection = perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
 mat4 view = lookAt(vec3(0, 0, 5), vec3(0.0, 0.0, 0.0), vec3(0, 1, 0));
@@ -187,7 +190,40 @@ int main(int argc, char* argv[]) {
 		glDisable(GL_BLEND);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+		// video
+		glBindFramebuffer(GL_FRAMEBUFFER, resultFrameBuffer);
+		glViewport(0, 0, windowWidth, windowHeight);
+		glUseProgram(displayProgram);
+		glDrawBuffers(1, drawBuffer);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+
+		glBindBuffer(GL_ARRAY_BUFFER, positionVertexBuffer);
+		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		glEnableVertexAttribArray(0);
+
+		glBindBuffer(GL_ARRAY_BUFFER, colorVertexBuffer);
+		glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		glEnableVertexAttribArray(2);
+
+		glEnable(GL_BLEND);
+		glDrawArrays(GL_POINTS, 0, numParticles);
+		glDisable(GL_BLEND);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		// retrive video
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, resultVertexBuffer);
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		glReadPixels(0, 0, windowWidth, windowHeight, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+		glBindBuffer(GL_ARRAY_BUFFER, resultVertexBuffer);
+		char* resultData = (char*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+		Mat resultMat(windowHeight, windowWidth, CV_8UC4, resultData);
+		imshow("Flocking - Result", resultMat);
+		waitKey(1);
+		glUnmapBuffer(GL_ARRAY_BUFFER);
+
 		// window event
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 
@@ -208,9 +244,12 @@ void initTexture() {
 	glGenTextures(1, &positionTex);
 	glGenTextures(1, &velocityTex);
 	glGenTextures(1, &colorTex);
+	glGenTextures(1, &resultTex);
 	glGenFramebuffers(1, &frameBuffer);
+	glGenFramebuffers(1, &resultFrameBuffer);
 	glGenBuffers(1, &positionVertexBuffer);
 	glGenBuffers(1, &colorVertexBuffer);
+	glGenBuffers(1, &resultVertexBuffer);
 
 	checkError("initTexture");
 }
@@ -273,12 +312,17 @@ void setupTexture() {
 		texData[i * 4 + 2] = (float(rand()) / RAND_MAX) * 0.25f + 0.5f;
 		texData[i * 4 + 3] = 1.0f;
 	}
-	glGenTextures(1, &colorTex);
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, colorTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, texSize, texSize, 0, GL_RGBA, GL_FLOAT, texData);
+
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_2D, resultTex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, windowWidth, windowHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
 	delete[] texData;
 
@@ -298,6 +342,15 @@ void setupTexture() {
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	glBindFramebuffer(GL_FRAMEBUFFER, resultFrameBuffer);
+	glBindTexture(GL_TEXTURE_2D, resultTex);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, resultTex, 0);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		cerr << "ERROR - Incomplete FrameBuffer" << endl;
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 	// position vertex buffer
 	glBindBuffer(GL_ARRAY_BUFFER, positionVertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, numParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_COPY);
@@ -306,6 +359,11 @@ void setupTexture() {
 	// color vertex buffer
 	glBindBuffer(GL_ARRAY_BUFFER, colorVertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, numParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_COPY);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// result vertex buffer
+	glBindBuffer(GL_ARRAY_BUFFER, resultVertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, windowWidth * windowHeight * 4 * sizeof(char), NULL, GL_STREAM_COPY);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	checkError("setupTexture");
