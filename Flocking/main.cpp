@@ -273,7 +273,6 @@ void setupTexture() {
 		texData[i * 4 + 2] = (float(rand()) / RAND_MAX) * 0.25f + 0.5f;
 		texData[i * 4 + 3] = 1.0f;
 	}
-	glGenTextures(1, &colorTex);
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, colorTex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
