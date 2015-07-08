@@ -147,7 +147,7 @@ int main(int argc, char* argv[]) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
 	// draw loop
-	do {
+	for (int i = 0; i < 1800; i++) {
 		// compute
 		glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
 		glViewport(0, 0, texSize, texSize);
@@ -218,8 +218,9 @@ int main(int argc, char* argv[]) {
 		glBindBuffer(GL_ARRAY_BUFFER, resultVertexBuffer);
 		char* resultData = (char*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
 		Mat resultMat(windowHeight, windowWidth, CV_8UC4, resultData);
-		imshow("Flocking - Result", resultMat);
-		waitKey(1);
+		//imshow("Flocking - Result", resultMat);
+		imwrite((boost::format("frame/%1%.png") % i).str(), resultMat);
+		//waitKey(1);
 		glUnmapBuffer(GL_ARRAY_BUFFER);
 
 		// window event
@@ -235,7 +236,7 @@ int main(int argc, char* argv[]) {
 			lastTime = nowTime;
 			count = 0;
 		}
-	} while (!glfwWindowShouldClose(window));
+	}
 
 	return EXIT_SUCCESS;
 }
