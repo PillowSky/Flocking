@@ -63,15 +63,15 @@ void main() {
 	c3 = (c3 - velocity) / alignment;
 
 	// Constrain to sphere
-	if (length(position) > 1.5) {
+	if (length(position) > 2) {
 		c4 = position / -5.0;
 	}
 
 	velocity.xyz += c1 + c2 + c3 + c4;
 
 	// Limit velocity
-	if (length(velocity) > 3.0) {
-		velocity = normalize(velocity) * 3.0;
+	if (length(velocity) > 5) {
+		velocity = normalize(velocity) * 5.0;
 	}
 
 	position.xyz += velocity.xyz * timeStep;

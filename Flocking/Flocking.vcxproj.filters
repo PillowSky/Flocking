@@ -43,5 +43,11 @@
     <None Include="Makefile">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="shader\skybox.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shader\skybox.vert">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

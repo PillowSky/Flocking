@@ -8,9 +8,11 @@
 *
 */
 
-#ifdef _WIN32
-	#define snprintf sprintf_s
-#endif
+#pragma comment(lib, "Opengl32.lib")
+#pragma comment(lib, "glu32.lib")
+#pragma comment(lib, "glfw3.lib")
+#pragma comment(lib, "glew32.lib")
+#pragma comment(lib, "SOIL.lib")
 
 #include <iostream>
 #include <random>
@@ -19,6 +21,8 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <SOIL.h>
 #include "common/util.hpp"
 
 using namespace std;
@@ -44,14 +48,15 @@ float neighborRadius = 1.0f;
 float collisionRadius = 0.1f;
 float timeStep = 0.01f;
 
-GLuint computeProgram, displayProgram;
-GLuint positionTex, velocityTex, colorTex;
+GLuint computeProgram, displayProgram, skyboxProgram;
+GLuint positionTex, velocityTex, colorTex, skyboxTex;
 GLuint frameBuffer, positionVertexBuffer, colorVertexBuffer;
 
 mat4 projection = perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
 mat4 view = lookAt(vec3(0, 0, 5), vec3(0.0, 0.0, 0.0), vec3(0, 1, 0));
 mat4 model = mat4(1.0f);
 mat4 mvp = projection * view * model;
+mat4 mvpsky = projection * view * model;
 
 float rotateSpeed = 0.01f;
 float translateSpeed = 0.01f;
@@ -60,11 +65,14 @@ float zoomSpeed = 0.01f;
 MouseStatus mouseStatus;
 vec2 lastMousePosition;
 mat4 lastMVP;
+mat4 lastMVPSky;
 
 void initTexture();
 void initComputation();
 void initDisplay();
+void initSkybox();
 void setupTexture();
+void setupSkybox();
 void setupComputation();
 void setupDisplay();
 
@@ -107,30 +115,90 @@ int main(int argc, char* argv[]) {
 
 	// init texture, computation, display
 	initTexture();
+	initSkybox();
 	initComputation();
 	initDisplay();
 
 	// setup texture, computation, display
 	setupTexture();
+	setupSkybox();
 	setupComputation();
 	setupDisplay();
 
 	// vertex used for draw
-	GLuint vertexArray;
-	glGenVertexArrays(1, &vertexArray);
-	glBindVertexArray(vertexArray);
 	const static GLfloat vertexData[] = {
 		-1.0f, -1.0f,
 		-1.0f,  1.0f,
-		 1.0f, -1.0f,
-		 1.0f,  1.0f
+		1.0f, -1.0f,
+		1.0f,  1.0f
 	};
 
-	GLuint vertexBuffer;
+	GLuint vertexArray, vertexBuffer;
+	glGenVertexArrays(1, &vertexArray);
 	glGenBuffers(1, &vertexBuffer);
+	glBindVertexArray(vertexArray);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW);
+	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glEnableVertexAttribArray(3);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	// vertex used for skybox
+	GLfloat skyboxVertices[] = {
+		-5.0f,  5.0f, -5.0f,
+		-5.0f, -5.0f, -5.0f,
+		5.0f, -5.0f, -5.0f,
+		5.0f, -5.0f, -5.0f,
+		5.0f,  5.0f, -5.0f,
+		-5.0f,  5.0f, -5.0f,
+
+		-5.0f, -5.0f,  5.0f,
+		-5.0f, -5.0f, -5.0f,
+		-5.0f,  5.0f, -5.0f,
+		-5.0f,  5.0f, -5.0f,
+		-5.0f,  5.0f,  5.0f,
+		-5.0f, -5.0f,  5.0f,
+
+		5.0f, -5.0f, -5.0f,
+		5.0f, -5.0f,  5.0f,
+		5.0f,  5.0f,  5.0f,
+		5.0f,  5.0f,  5.0f,
+		5.0f,  5.0f, -5.0f,
+		5.0f, -5.0f, -5.0f,
+
+		-5.0f, -5.0f,  5.0f,
+		-5.0f,  5.0f,  5.0f,
+		5.0f,  5.0f,  5.0f,
+		5.0f,  5.0f,  5.0f,
+		5.0f, -5.0f,  5.0f,
+		-5.0f, -5.0f,  5.0f,
+
+		-5.0f,  5.0f, -5.0f,
+		5.0f,  5.0f, -5.0f,
+		5.0f,  5.0f,  5.0f,
+		5.0f,  5.0f,  5.0f,
+		-5.0f,  5.0f,  5.0f,
+		-5.0f,  5.0f, -5.0f,
+
+		-5.0f, -5.0f, -5.0f,
+		-5.0f, -5.0f,  5.0f,
+		5.0f, -5.0f, -5.0f,
+		5.0f, -5.0f, -5.0f,
+		-5.0f, -5.0f,  5.0f,
+		5.0f, -5.0f,  5.0f
+	};
+
+	GLuint skyboxVAO, skyboxVBO;
+	glGenVertexArrays(1, &skyboxVAO);
+	glGenBuffers(1, &skyboxVBO);
+	glBindVertexArray(skyboxVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(4);
+	glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
 
 	// variable used in draw loop
 	int count = 0;
@@ -141,7 +209,9 @@ int main(int argc, char* argv[]) {
 
 	// status used in loop
 	glPointSize(pointSize);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	glEnable(GL_DEPTH_TEST);
+	glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
+	glDepthFunc(GL_LESS);
 
 	// draw loop
 	do {
@@ -149,13 +219,12 @@ int main(int argc, char* argv[]) {
 		glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
 		glViewport(0, 0, texSize, texSize);
 		glUseProgram(computeProgram);
-		glDrawBuffers(3, drawBuffer);
+		glBindVertexArray(vertexArray);
 		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-		glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-		glEnableVertexAttribArray(3);
-
+		glDrawBuffers(3, drawBuffer);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, sizeof(vertexData));
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
 
 		// retrive
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, positionVertexBuffer);
@@ -166,14 +235,24 @@ int main(int argc, char* argv[]) {
 		glReadBuffer(GL_COLOR_ATTACHMENT2);
 		glReadPixels(0, 0, texSize, texSize, GL_RGBA, GL_FLOAT, NULL);
 
-		// display
+		// draw to screen
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(0, 0, windowWidth, windowHeight);
-		glUseProgram(displayProgram);
 		glDrawBuffer(GL_BACK);
+		glViewport(0, 0, windowWidth, windowHeight);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
 
+		// skybox
+		glDepthMask(GL_FALSE);
+		glUseProgram(skyboxProgram);
+		glBindVertexArray(skyboxVAO);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		glBindVertexArray(0);
+		glDepthMask(GL_TRUE);
+
+		// display
+		glUseProgram(displayProgram);
+		glBindVertexArray(vertexArray);
 		glBindBuffer(GL_ARRAY_BUFFER, positionVertexBuffer);
 		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
 		glEnableVertexAttribArray(0);
@@ -186,6 +265,7 @@ int main(int argc, char* argv[]) {
 		glDrawArrays(GL_POINTS, 0, numParticles);
 		glDisable(GL_BLEND);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
 
 		// window event
 		glfwSwapBuffers(window);
@@ -213,6 +293,14 @@ void initTexture() {
 	glGenBuffers(1, &colorVertexBuffer);
 
 	checkError("initTexture");
+}
+void initSkybox() {
+	const char* skyboxSrc[] = { readFileBytes("shader/skybox.vert"), readFileBytes("shader/skybox.frag") };
+	GLenum skyboxType[] = { GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
+	skyboxProgram = buildProgram(skyboxSrc, skyboxType, 2);
+	delete[] skyboxSrc[0];
+	delete[] skyboxSrc[1];
+	checkError("initSkybox");
 }
 
 void initComputation() {
@@ -268,9 +356,9 @@ void setupTexture() {
 
 	// init color data
 	for (int i = 0; i < numParticles; ++i) {
-		texData[i * 4 + 0] = (float(rand()) / RAND_MAX) * 0.15f;
-		texData[i * 4 + 1] = (float(rand()) / RAND_MAX) * 0.15f;
-		texData[i * 4 + 2] = (float(rand()) / RAND_MAX) * 0.25f + 0.5f;
+		texData[i * 4 + 0] = (float(rand()) / RAND_MAX) * 0.25f + 0.75f;
+		texData[i * 4 + 1] = (float(rand()) / RAND_MAX) * 0.5f + 0.25f;
+		texData[i * 4 + 2] = (float(rand()) / RAND_MAX) * 0.25f;
 		texData[i * 4 + 3] = 1.0f;
 	}
 	glActiveTexture(GL_TEXTURE2);
@@ -310,6 +398,35 @@ void setupTexture() {
 	checkError("setupTexture");
 }
 
+void setupSkybox() {
+	char* faces[] = { "right.jpg" , "left.jpg" , "top.jpg", "bottom.jpg", "back.jpg", "front.jpg" };
+
+	glGenTextures(1, &skyboxTex);
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTex);
+
+	int width, height;
+	unsigned char* image = NULL;
+
+	for (int i = 0; i < 6; i++) {
+		image = SOIL_load_image(faces[i], &width, &height, 0, SOIL_LOAD_RGB);
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+	glUseProgram(skyboxProgram);
+	glUniform1i(glGetUniformLocation(skyboxProgram, "skybox"), 3);
+	glUseProgram(0);
+
+	checkError("setupSkybox");
+}
+
 void setupComputation() {
 	glUseProgram(computeProgram);
 	glUniform1i(glGetUniformLocation(computeProgram, "positionTex"), 0);
@@ -328,7 +445,11 @@ void setupComputation() {
 
 void setupDisplay() {
 	glUseProgram(displayProgram);
-	glUniformMatrix4fv(glGetUniformLocation(displayProgram, "mvp"), 1, GL_FALSE, &mvp[0][0]);
+	glUniformMatrix4fv(glGetUniformLocation(displayProgram, "mvp"), 1, GL_FALSE, value_ptr(glm::translate(mvp, vec3(0, 1.5f, 0))));
+	glUseProgram(0);
+
+	glUseProgram(skyboxProgram);
+	glUniformMatrix4fv(glGetUniformLocation(skyboxProgram, "mvp"), 1, GL_FALSE, value_ptr(mvpsky));
 	glUseProgram(0);
 
 	checkError("setupDisplay");
@@ -343,6 +464,7 @@ void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
 			}
 			case 'f': case 'F': {
 				mvp = projection * view * model;
+				mvpsky = projection * view * model;
 				setupDisplay();
 				break;
 			}
@@ -361,6 +483,7 @@ void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
 		glfwGetCursorPos(window, &xpos, &ypos);
 		lastMousePosition = vec2(xpos, ypos);
 		lastMVP = mvp;
+		lastMVPSky = mvpsky;
 
 		switch (button) {
 			case GLFW_MOUSE_BUTTON_LEFT: {
@@ -384,6 +507,7 @@ void onCursorPos(GLFWwindow* window, double xpos, double ypos) {
 		case MouseStatus::rotate: {
 			vec2 move = (vec2(xpos, ypos) - lastMousePosition) * rotateSpeed;
 			mvp = glm::rotate(lastMVP, length(move), vec3(move.y, move.x, 0));
+			mvpsky = glm::rotate(lastMVPSky, length(move), vec3(move.y, move.x, 0));
 			break;
 		}
 		case MouseStatus::translate: {
