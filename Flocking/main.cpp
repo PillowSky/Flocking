@@ -20,12 +20,12 @@
 #include "common/util.hpp"
 
 #ifdef _WIN32
-#include <windows.h>
 #pragma comment(lib, "Opengl32.lib")
 #pragma comment(lib, "glu32.lib")
 #pragma comment(lib, "glfw3.lib")
 #pragma comment(lib, "glew32.lib")
 #pragma comment(lib, "SOIL.lib")
+#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 #endif
 
 using namespace std;
@@ -85,12 +85,7 @@ void onCursorPos(GLFWwindow* window, double xpos, double ypos);
 void onScroll(GLFWwindow* window, double xoffset, double yoffset);
 void onResize(GLFWwindow* window, int width, int height);
 
-#ifdef _WIN32
-int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-#else
 int main(int argc, char* argv[]) {
-#endif
-
 	if (!glfwInit()) {
 		throw runtime_error("Failed to initialize GLFW");
 	}
