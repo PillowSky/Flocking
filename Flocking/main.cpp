@@ -8,12 +8,6 @@
 *
 */
 
-#pragma comment(lib, "Opengl32.lib")
-#pragma comment(lib, "glu32.lib")
-#pragma comment(lib, "glfw3.lib")
-#pragma comment(lib, "glew32.lib")
-#pragma comment(lib, "SOIL.lib")
-
 #include <iostream>
 #include <random>
 #include <boost/format.hpp>
@@ -24,6 +18,15 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <SOIL.h>
 #include "common/util.hpp"
+
+#ifdef _WIN32
+#include <windows.h>
+#pragma comment(lib, "Opengl32.lib")
+#pragma comment(lib, "glu32.lib")
+#pragma comment(lib, "glfw3.lib")
+#pragma comment(lib, "glew32.lib")
+#pragma comment(lib, "SOIL.lib")
+#endif
 
 using namespace std;
 using namespace boost;
@@ -82,7 +85,12 @@ void onCursorPos(GLFWwindow* window, double xpos, double ypos);
 void onScroll(GLFWwindow* window, double xoffset, double yoffset);
 void onResize(GLFWwindow* window, int width, int height);
 
+#ifdef _WIN32
+int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+#else
 int main(int argc, char* argv[]) {
+#endif
+
 	if (!glfwInit()) {
 		throw runtime_error("Failed to initialize GLFW");
 	}
@@ -328,9 +336,9 @@ void setupTexture() {
 
 	// init position data
 	for (int i = 0; i < numParticles; i++) {
-		texData[4 * i + 0] = float(rand()) / RAND_MAX - 0.5f;
-		texData[4 * i + 1] = float(rand()) / RAND_MAX - 0.5f;
-		texData[4 * i + 2] = float(rand()) / RAND_MAX - 0.5f;
+		texData[4 * i + 0] = (float(rand()) / RAND_MAX) * 2.0f - 1.0f;
+		texData[4 * i + 1] = (float(rand()) / RAND_MAX) * 2.0f - 1.0f;
+		texData[4 * i + 2] = (float(rand()) / RAND_MAX) * 2.0f - 1.0f;
 		texData[4 * i + 3] = 1.0f;
 	}
 	glActiveTexture(GL_TEXTURE0);
@@ -341,7 +349,7 @@ void setupTexture() {
 
 	// init velocity data
 	default_random_engine generator(rand());
-	normal_distribution<float> distribution(-5.0f, 5.0f);
+	normal_distribution<float> distribution(0.0f, 2.8f);
 	for (int i = 0; i < numParticles; ++i) {
 		texData[i * 4 + 0] = distribution(generator);
 		texData[i * 4 + 1] = distribution(generator);
