@@ -41,7 +41,7 @@ int windowHeight = 600;
 int texSize = 80;
 int numParticles = texSize * texSize;
 
-float pointSize = 2.0f;
+float pointSize = 2.4f;
 float cohesion = 1000.0f;
 float alignment = 80.0f;
 float neighborRadius = 1.0f;
@@ -52,7 +52,7 @@ GLuint computeProgram, displayProgram, skyboxProgram;
 GLuint positionTex, velocityTex, colorTex, skyboxTex;
 GLuint frameBuffer, positionVertexBuffer, colorVertexBuffer;
 
-mat4 projection = perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
+mat4 projection = perspective(45.0f, float(windowWidth) / windowHeight, 0.1f, 100.0f);
 mat4 view = lookAt(vec3(0, 0, 5), vec3(0.0, 0.0, 0.0), vec3(0, 1, 0));
 mat4 model = mat4(1.0f);
 mat4 mvp = projection * view * model;
@@ -146,47 +146,47 @@ int main(int argc, char* argv[]) {
 
 	// vertex used for skybox
 	GLfloat skyboxVertices[] = {
-		-5.0f,  5.0f, -5.0f,
-		-5.0f, -5.0f, -5.0f,
-		5.0f, -5.0f, -5.0f,
-		5.0f, -5.0f, -5.0f,
-		5.0f,  5.0f, -5.0f,
-		-5.0f,  5.0f, -5.0f,
+		-50.0f,  50.0f, -50.0f,
+		-50.0f, -50.0f, -50.0f,
+		50.0f, -50.0f, -50.0f,
+		50.0f, -50.0f, -50.0f,
+		50.0f,  50.0f, -50.0f,
+		-50.0f,  50.0f, -50.0f,
 
-		-5.0f, -5.0f,  5.0f,
-		-5.0f, -5.0f, -5.0f,
-		-5.0f,  5.0f, -5.0f,
-		-5.0f,  5.0f, -5.0f,
-		-5.0f,  5.0f,  5.0f,
-		-5.0f, -5.0f,  5.0f,
+		-50.0f, -50.0f,  50.0f,
+		-50.0f, -50.0f, -50.0f,
+		-50.0f,  50.0f, -50.0f,
+		-50.0f,  50.0f, -50.0f,
+		-50.0f,  50.0f,  50.0f,
+		-50.0f, -50.0f,  50.0f,
 
-		5.0f, -5.0f, -5.0f,
-		5.0f, -5.0f,  5.0f,
-		5.0f,  5.0f,  5.0f,
-		5.0f,  5.0f,  5.0f,
-		5.0f,  5.0f, -5.0f,
-		5.0f, -5.0f, -5.0f,
+		50.0f, -50.0f, -50.0f,
+		50.0f, -50.0f,  50.0f,
+		50.0f,  50.0f,  50.0f,
+		50.0f,  50.0f,  50.0f,
+		50.0f,  50.0f, -50.0f,
+		50.0f, -50.0f, -50.0f,
 
-		-5.0f, -5.0f,  5.0f,
-		-5.0f,  5.0f,  5.0f,
-		5.0f,  5.0f,  5.0f,
-		5.0f,  5.0f,  5.0f,
-		5.0f, -5.0f,  5.0f,
-		-5.0f, -5.0f,  5.0f,
+		-50.0f, -50.0f,  50.0f,
+		-50.0f,  50.0f,  50.0f,
+		50.0f,  50.0f,  50.0f,
+		50.0f,  50.0f,  50.0f,
+		50.0f, -50.0f,  50.0f,
+		-50.0f, -50.0f,  50.0f,
 
-		-5.0f,  5.0f, -5.0f,
-		5.0f,  5.0f, -5.0f,
-		5.0f,  5.0f,  5.0f,
-		5.0f,  5.0f,  5.0f,
-		-5.0f,  5.0f,  5.0f,
-		-5.0f,  5.0f, -5.0f,
+		-50.0f,  50.0f, -50.0f,
+		50.0f,  50.0f, -50.0f,
+		50.0f,  50.0f,  50.0f,
+		50.0f,  50.0f,  50.0f,
+		-50.0f,  50.0f,  50.0f,
+		-50.0f,  50.0f, -50.0f,
 
-		-5.0f, -5.0f, -5.0f,
-		-5.0f, -5.0f,  5.0f,
-		5.0f, -5.0f, -5.0f,
-		5.0f, -5.0f, -5.0f,
-		-5.0f, -5.0f,  5.0f,
-		5.0f, -5.0f,  5.0f
+		-50.0f, -50.0f, -50.0f,
+		-50.0f, -50.0f,  50.0f,
+		50.0f, -50.0f, -50.0f,
+		50.0f, -50.0f, -50.0f,
+		-50.0f, -50.0f,  50.0f,
+		50.0f, -50.0f,  50.0f
 	};
 
 	GLuint skyboxVAO, skyboxVBO;
@@ -210,7 +210,7 @@ int main(int argc, char* argv[]) {
 	// status used in loop
 	glPointSize(pointSize);
 	glEnable(GL_DEPTH_TEST);
-	glBlendFunc(GL_SRC_COLOR, GL_DST_COLOR);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 	glDepthFunc(GL_LESS);
 
 	// draw loop
@@ -341,7 +341,7 @@ void setupTexture() {
 
 	// init velocity data
 	default_random_engine generator(rand());
-	normal_distribution<float> distribution(-2.0f, 2.0f);
+	normal_distribution<float> distribution(-5.0f, 5.0f);
 	for (int i = 0; i < numParticles; ++i) {
 		texData[i * 4 + 0] = distribution(generator);
 		texData[i * 4 + 1] = distribution(generator);
@@ -356,9 +356,9 @@ void setupTexture() {
 
 	// init color data
 	for (int i = 0; i < numParticles; ++i) {
-		texData[i * 4 + 0] = (float(rand()) / RAND_MAX) * 0.25f + 0.75f;
-		texData[i * 4 + 1] = (float(rand()) / RAND_MAX) * 0.5f + 0.25f;
-		texData[i * 4 + 2] = (float(rand()) / RAND_MAX) * 0.25f;
+		texData[i * 4 + 0] = (float(rand()) / RAND_MAX) * 0.15f;
+		texData[i * 4 + 1] = (float(rand()) / RAND_MAX) * 0.15f + 0.3f;
+		texData[i * 4 + 2] = (float(rand()) / RAND_MAX) * 0.25f + 0.5f;
 		texData[i * 4 + 3] = 1.0f;
 	}
 	glActiveTexture(GL_TEXTURE2);
@@ -399,7 +399,7 @@ void setupTexture() {
 }
 
 void setupSkybox() {
-	char* faces[] = { "cubemap/right.jpg" , "cubemap/left.jpg" , "cubemap/top.jpg", "cubemap/bottom.jpg", "cubemap/back.jpg", "cubemap/front.jpg" };
+	char* faces[] = { "cubemap/left.jpg" , "cubemap/right.jpg" , "cubemap/top.jpg", "cubemap/bottom.jpg", "cubemap/front.jpg", "cubemap/back.jpg" };
 
 	glGenTextures(1, &skyboxTex);
 	glActiveTexture(GL_TEXTURE3);
@@ -446,7 +446,7 @@ void setupComputation() {
 
 void setupDisplay() {
 	glUseProgram(displayProgram);
-	glUniformMatrix4fv(glGetUniformLocation(displayProgram, "mvp"), 1, GL_FALSE, value_ptr(glm::translate(mvp, vec3(0, 1.5f, 0))));
+	glUniformMatrix4fv(glGetUniformLocation(displayProgram, "mvp"), 1, GL_FALSE, value_ptr(mvp));
 	glUseProgram(0);
 
 	glUseProgram(skyboxProgram);
@@ -541,5 +541,6 @@ void onScroll(GLFWwindow* window, double xoffset, double yoffset) {
 void onResize(GLFWwindow* window, int width, int height) {
 	windowWidth = width;
 	windowHeight = height;
+	projection = perspective(45.0f, float(width) / height, 0.1f, 100.0f);
 	setupDisplay();
 }
