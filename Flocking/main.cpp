@@ -16,7 +16,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <SOIL.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 #include "common/util.hpp"
 
 #ifdef _WIN32
@@ -24,7 +25,6 @@
 #pragma comment(lib, "glu32.lib")
 #pragma comment(lib, "glfw3.lib")
 #pragma comment(lib, "glew32.lib")
-#pragma comment(lib, "SOIL.lib")
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 #endif
 
@@ -412,9 +412,9 @@ void setupSkybox() {
 	unsigned char* image = NULL;
 
 	for (int i = 0; i < 6; i++) {
-		image = SOIL_load_image(faces[i], &width, &height, 0, SOIL_LOAD_RGB);
+		image = stbi_load(faces[i], &width, &height, 0, STBI_default);
 		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-		SOIL_free_image_data(image);
+		stbi_image_free(image);
 	}
 
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
